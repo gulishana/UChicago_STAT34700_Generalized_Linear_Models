@@ -1,0 +1,587 @@
+---
+title: "Homework 2"
+author: "Sarah Adilijiang"
+output:
+  pdf_document: default
+  html_notebook: default
+---
+
+### Problem 1
+#### (a)
+
+First, the paper analyzed the all-cause midlife (ages 45-54) mortality rates of several rich countries and found that there was a marked increase in the midlife mortality rate for white non-Hispanics in the United States between 1999 and 2013, which presented a reversal trend comparing with other rich countries and being unique to the United States. 
+
+Second, it analyzed the mortality rates from different causes and pointed out the three causes of death that accounted for the mortality reversal among white non-Hispanics, namely suicide, drug and alcohol poisoning, and chronic liver diseases and cirrhosis.
+
+Also, the authors showed that people with less education have the most marked increases in mortality from suicide and poisonings.
+
+Furthermore, it revealed that the rising midlife mortality rates of white non-Hispanics were paralleled by increases in midlife morbidity.
+
+As a result, the authors stated that the above increased morbidity and mortality in midlife among white non-Hispanic were probably caused by growing distress in this population and the economic insecurity.
+
+
+
+#### (b)
+```{r}
+load("Mortality.Rdata")
+str(Mortality)    # rate = Deaths/Population * 10^5
+
+# aggregate the dataset by Year & Ages
+library(dplyr)
+mortality_agg = Mortality %>% group_by(Year, Ages) %>% summarise(Population = sum(Population))
+
+# select the dataset for White Non-Hispanics
+mortality_WNH = subset(Mortality, Race=="White" & Hisp=="NHisp")
+
+
+# plot the distribution of "Ages" for whole population
+library(ggplot2)
+ggplot(mortality_agg, aes(x=as.factor(Ages), y=Population, color=Year)) + 
+    geom_point() + geom_line(aes(group=Year)) + 
+    labs(x="Ages", title="Distribution of Ages for Whole Population")
+
+
+# plot the distribution of "Ages" for White Non-Hispanics
+ggplot(mortality_WNH, aes(x=as.factor(Ages), y=Population, color=Year)) + 
+    geom_point() + geom_line(aes(group=Year)) + 
+    labs(x="Ages", title="Distribution of Ages for White Non-Hispanics")
+```
+
+Answer:
+
+For both the whole population and the white non-Hispanics subset, the distribution of ages in the 45 to 54 range shows different trends for the year 1999 and 2013. In the year 1999, the population has a generally decreasing trend as the age increases, while in the year 2013, the population has a generally increasing trend as the age increases.
+
+This might affect the conclusion that mortality rates in the 45-54 age range increased among white non-hispanic Americans between 1999 and 2013, because there are more old people in the year 2013 than 1999, which might be one of the reasons for higher mortality rates in 2013 since elder people may have more risk of health problems.
+
+
+#### (c)
+```{r}
+# plot Motality rate ~ Ages, for both years
+ggplot(mortality_WNH, aes(x=as.factor(Ages), y=rate, color=Year)) + 
+    geom_point() + geom_line(aes(group=Year)) + 
+    labs(x="Ages", y="Deaths per 100,000", title="Mortality Rate for White Non-Hispanics")
+```
+
+We can see from the plot that the mortality rate does increases as the ages increases both for 1999 and 2013. Since the year 2013 has more old people than 1999 as shown in question (a), we should add both the "Ages" and "Year" as covariates into the model to control for the age distribution.
+
+Therefore, the generalized linear model (GLM) for binomial response here is:
+\newline likelihood: \(P(Deaths_i=y_i|p_i) = {m_i\choose y_i} p_i^{y_i} (1-p_i)^{m_i-y_i}, \ y_i=0,1,...,m_i \), where \(Deaths_i\) is the number of deaths per 100,000 population, and \(m_i\) is the number of population in each group.
+\newline linear predictor: \(\eta_i = \beta_0 + \beta_1 Ages_i  + \beta_2 1_{Year_i=2013}\)
+\newline link function (logit): \(\eta_i = \log \frac{p_i}{1-p_i}\), where mortality rate \(p_i = y_i/m_i\)
+\newline The binomial distribution is a case within the exponential distribution family.
+```{r}
+# fit the new model adding "Ages" and interaction terms
+model.glm = glm(cbind(Deaths, Population-Deaths)~Ages+Year, mortality_WNH, family=binomial)
+summary(model.glm)
+
+# Chi-square test
+anova(model.glm, test="Chi")
+```
+
+Answer:
+
+In the summary, both the "Ages" and "Year2013" are significant predictors in this model. The difference in deviance chi-square test proves that the "Year" effect is highly significant.
+
+Based on this, the summary also shows that the "Year2013" is a significant positive predictor which means that the all-cause mortalily rate in 2013 is larger than that in 1999 when controlling the "Ages". Therefore, we can agree with the author's conclusion that the all-cause mortality rate of midlife white non-Hispanics has a marked increase between 1999 and 2013.
+
+
+#### (d)
+```{r}
+# plot Suicide mortality rate ~ Ages, for both years
+ggplot(mortality_WNH, aes(x=as.factor(Ages), y=Suicide/Population, color=Year)) + 
+    geom_point() + geom_line(aes(group=Year)) + 
+    labs(x="Ages", y="Deaths per 100,000", title="Mortality Rate from Suicides for White Non-Hispanics")
+
+# plot Poisoning mortality rate ~ Ages, for both years
+ggplot(mortality_WNH, aes(x=as.factor(Ages), y=drug_alc/Population, color=Year)) + 
+    geom_point() + geom_line(aes(group=Year)) + 
+    labs(x="Ages", y="Deaths per 100,000", title="Mortality Rate from Poisonings for White Non-Hispanics")
+```
+
+We can see from the plot that the mortality rate from suicides and poisonings both slightly decrease as the ages increases in the year 1999. However, the mortality rate from suicides and poisonings both slightly increase as the ages increases in the year 2013. Due to the two different trends, we should only only add both the "Ages" and "Year" as covariates into the model, but also consider the interaction terms of "Ages" and "Year".
+
+Therefore, the generalized linear model (GLM) for binomial response here are:
+\newline For mortality rate from suicides:
+\newline likelihood: \(P(Suicides_i=y_i|p_i) = {m_i\choose y_i} p_i^{y_i} (1-p_i)^{m_i-y_i}, \ y_i=0,1,...,m_i \), where \(Suicides_i\) is the number of deaths per 100,000 population from suicides, and \(m_i\) is the number of population in each group.
+
+For mortality rate from poisonings:
+\newline likelihood: \(P(Poisonings_i=y_i|p_i) = {m_i\choose y_i} p_i^{y_i} (1-p_i)^{m_i-y_i}, \ y_i=0,1,...,m_i \), where \(Suicides_i\) is the number of deaths per 100,000 population from poisonings, and \(m_i\) is the number of population in each group.
+
+But the forms of linear predictors and link functions are the same:
+\newline linear predictor: \(\eta_i = \beta_0 + \beta_1 Ages_i  + \beta_2 1_{Year_i=2013} + \beta_3 Ages_i \times 1_{Year_i=2013}\)
+\newline link function (logit): \(\eta_i = \log \frac{p_i}{1-p_i}\), where mortality rate \(p_i = y_i/m_i\)
+\newline
+```{r}
+# fit a model for "Suicide"
+model.glm_su = glm(cbind(Suicide, Population-Suicide)~Ages*Year, mortality_WNH, family=binomial)
+summary(model.glm_su)
+
+# Chi-square test
+anova(model.glm_su, test="Chi")
+
+# difference between 1999 and 2013 at different ages
+beta = coef(model.glm_su)
+beta[3] + beta[4]* mortality_WNH$Ages
+```
+
+Answer:
+
+In the summary, all the predictors are significant. The difference in deviance chi-square test proves that the "Year" effect and the interaction term "Ages:Year" are both highly significant.
+
+Based on this, the summary also shows that when controlling the "Year", in 1999, "Ages" has a slope of \(\hat{\beta_1}\) = -0.014697, indicating a negative effect of "Ages" on the mortalitly rate from suicides. In contrast, in 2013, "Ages" has a slope of \(\hat{\beta_1} + \hat{\beta_3}\) = -0.014697 + 0.024800 = 0.010103, indicating a positive effect of "Ages" on the mortalitly rate from suicides. These are consistent with the discovers in the previous plots.
+
+On the other hand, when controlling the "Ages", the mortality rate from suicides in 2013 is \(\hat{\beta_2} + \hat{\beta_3} Ages_i\) larger than that in 1999. The values of \(\hat{\beta_2} + \hat{\beta_3} Ages_i\) shows that though these differences between 1999 and 2013 are different at each age, they are all positive, which means the mortality rate from suicides in 2013 is larger than that of 1999 at all ages.
+
+
+```{r}
+# fit a model for "drug_alc"
+model.glm_dr = glm(cbind(drug_alc, Population-drug_alc)~Ages*Year, mortality_WNH, family=binomial)
+summary(model.glm_dr)
+
+# Chi-square test
+anova(model.glm_dr, test="Chi")
+
+
+# difference between 1999 and 2013 at different ages
+beta = coef(model.glm_dr)
+beta[3] + beta[4]* mortality_WNH$Ages
+```
+
+Answer:
+
+In the summary, all the predictors are significant. The difference in deviance chi-square test proves that the "Year" effect and the interaction term "Ages:Year" are both highly significant.
+
+Based on this, the summary also shows that when controlling the "Year", in 1999, "Ages" has a slope of \(\hat{\beta_1}\) = -0.036021, indicating a negative effect of "Ages" on the mortalitly rate from poisonings. In contrast, in 2013, "Ages" has a slope of \(\hat{\beta_1} + \hat{\beta_3}\) = -0.036021 + 0.055215 = 0.019194, indicating a positive effect of "Ages" on the mortalitly rate from poisonings. These are consistent with the discovers in the previous plots.
+
+On the other hand, when controlling the "Ages", the mortality rate from suicides in 2013 is \(\hat{\beta_2} + \hat{\beta_3} Ages_i\) larger than that in 1999. The values of \(\hat{\beta_2} + \hat{\beta_3} Ages_i\) shows that though these differences between 1999 and 2013 are different at each age, they are all positive, which means the mortality rate from poisonings in 2013 is larger than that of 1999 at all ages.
+
+
+
+
+### Problem 2
+#### (a)
+```{r}
+library(faraway)
+data("seeds")
+str(seeds)
+
+# plot germination percentage ~ moisture level
+par(mfrow = c(1,2))
+plot(germ~moisture, data=seeds[seeds$covered=="no", ], ylim=c(0,85),
+        main="Uncovered Boxes", xlab="moisture level", ylab="germination percentage")
+plot(germ~moisture, data=seeds[seeds$covered=="yes", ], ylim=c(0,85),
+        main="Covered Boxes", xlab="moisture level", ylab="germination percentage")
+```
+
+Answer:
+
+(1) The relationship between germination percentage and moisture level is not monotonic. It looks like quadratic, which increases first and then decreases. (2) For covered and uncovered boxes, the germination percentage reaches the maximum value at different moisture levels. 
+
+
+#### (b)
+```{r}
+# add variable facotr "box"
+seeds$box = as.factor((rep(1:8,rep(6,8))))  # = rep(c(1,2,3,4,5,6,7,8),c(6,6,6,6,6,6,6,6))
+str(seeds)
+```
+
+```{r}
+# plot germination percentage ~ moisture level, lining the same boxes
+library(ggplot2)
+ggplot(data=seeds, aes(x=as.factor(moisture), y=germ, color=box)) + 
+    geom_point() + xlab("moisture level") + ylab("germination percentage") +
+    geom_line(aes(group=box)) + facet_grid(~covered)
+```
+
+Answer:
+
+There is no significant patterns for different boxes in the relationship between germination percentage and moisture level. Thus there is no indication of a box effect.
+
+Note: due to one missing value, there is no point connection for covered BOX8 at moisture level 9. 
+
+
+
+#### (c)
+The generalized linear model (GLM) for binomial response here is:
+\newline likelihood: \(P(germ_i=y_i|p_i) = {100\choose y_i} p_i^{y_i} (1-p_i)^{100-y_i}, \ y_i=0,1,...,100\)
+\newline linear predictor: \(\eta_i = \beta_0 + \beta_1 moisture_i + \beta_2 1_{covered_i="yes"} + \beta_3 1_{box_i=2} + \beta_4 1_{box_i=3} + \beta_5 1_{box_i=4} + \beta_6 1_{box_i=5} + \beta_7 1_{box_i=6} + \beta_8 1_{box_i=7} + \beta_9 1_{box_i=8}\)
+\newline link function (logit): \(\eta_i = \log \frac{p_i}{1-p_i}\), where \(p_i = y_i/100\) is the percentage of germinated seeds in each box.
+\newline
+```{r}
+# modify the data frame
+seeds$notgerm = 100-seeds$germ
+
+# fit the logistic GLM model for binomial response
+model.glm = glm(cbind(germ,notgerm)~moisture+covered+box, data=seeds, family=binomial)
+summary(model.glm)
+
+# check the data design matrix of the model
+model.matrix(model.glm)
+```
+
+Answer:
+
+We can see that in the design matrix, there is a linear relationship between the following indicator covariates: \(coveredyes = box5 + box6 + box7 + box8\), so \(box8 = coveredyes - box5 - box6 - box7\), which makes it a redundant (linear dependent) indicator variable that occurs in the last. Thus there is an NA appearing for the BOX8 factor level due to the rank deficiency of the design matrix.
+
+
+#### (d)
+The linear predictor of the GLM submodel without "box" is:
+\newline linear predictor: \(\eta_i = \beta_0 + \beta_1 moisture_i + \beta_2 1_{covered_i="yes"}\)
+\newline
+```{r}
+# fit a GLM submodel without "box"
+model.glm_sub = glm(cbind(germ,notgerm)~moisture+covered, data=seeds, family=binomial)
+
+# likelihood ratio test (LRT) test : Chi-square
+LRT = deviance(model.glm_sub) - deviance(model.glm)
+df = model.glm_sub$df.residual - model.glm$df.residual
+p_val = 1 - pchisq(LRT, df); p_val
+
+# or
+anova(model.glm_sub, model.glm, test="Chi")
+```
+
+Answer:
+
+The p-value of the likelihood ratio test (Chi-square test) is 0.884346, thus we do not reject the null hypothesis, so the smaller model without variable "box" is preferred. Therefore, the box factor is not significant.
+
+
+#### (e)
+```{r}
+# aggregate the data set
+seeds_agg = aggregate(seeds[,c(1,5)], by=list(seeds$moisture, seeds$covered), 
+                   FUN=sum, na.rm=TRUE)
+colnames(seeds_agg)[c(1,2)] = c("moisture", "covered")
+seeds_agg$total = seeds_agg$germ + seeds_agg$notgerm
+
+# fit the model to the aggregated data set
+model.glm_agg = glm(cbind(germ,notgerm)~moisture+covered, data=seeds_agg, family=binomial)
+summary(model.glm_agg)
+
+# model before aggregation
+summary(model.glm_sub)
+```
+
+Answer:
+
+Since the box factor is not significant, we can aggregate the 4 boxes that are with the same moisture level and the same coverage condition into one data point, thus changing total 48 observations into 12 observations.
+
+After aggregation, the estimated parameters did not change (also with the same significance result) because the data for each conditions are actually the same. However, the deviance and the degrees of freedom changed since the number of observations has changed.
+
+From now on, I will use the aggregated data for the following questions.
+
+
+#### (f)
+```{r}
+# plot germination percentage ~ moisture level
+ggplot(data=seeds_agg, aes(x=as.factor(moisture), y=100*germ/total, color=covered)) + 
+    geom_point() + xlab("moisture level") + ylab("germination percentage") +
+    geom_line(aes(group=covered))
+```
+
+Answer:
+
+First, from the previous questions, we have shown that "box" is not a significant factor, so we remove it from the model.
+
+Then, the plot shows that: (1) The relationship between germination percentage and moisture level is not monotonic. It looks like quadratic, which increases first and then decreases. So the linear predictor \(\eta\) cannot be just the linear combination of "moisture" and "covered", thus we can try adding the second-order term of the numeric variable "moisture" to the model. (2) For covered and uncovered boxes, the germination percentage reaches the maximum value at different moisture levels, which indicates that there might be an interaction between "moisture" and "covered".
+
+Let's construct a new model adding these two terms. Now the linear predictor of the GLM submodel is:
+\newline linear predictor: \(\eta_i = \beta_0 + \beta_1 moisture_i + \beta_2 1_{covered_i="yes"} + \beta_3 moisture_i \times 1_{covered_i="yes"} + \beta_4 moisture_i^2\)
+\newline
+```{r}
+# fit a GLM submodel adding the two terms
+model.glm_sub2 = glm(cbind(germ,notgerm)~moisture*covered+I(moisture^2), 
+                     data=seeds_agg, family=binomial)
+summary(model.glm_sub2)
+
+# check the significance of the two terms with Chi-square test
+anova(model.glm_sub2, test="Chi")
+```
+
+Answer:
+
+The summary shows that all the predictors are now significant in this model. And the chi-square test for adding the two terms step by step also shows that both of the added terms are significant. Thus this is an appropriate choice of model beyond main effects.
+
+
+#### (g)
+```{r}
+# add the predicted germination percentage (*100%)
+seeds_agg$predgerm = 100 * predict(model.glm_sub2, type="response")
+
+# plot predicted germination percentage ~ moisture level
+ggplot(data=seeds_agg, aes(x=as.factor(moisture), y=predgerm, color=covered)) + 
+    geom_point() + labs(x="moisture level", y="predicted germination percentage") +
+    geom_line(aes(group=covered))
+```
+
+Answer:
+
+For both covered and non-covered seeds, the predicted maximum germination percentage occurs both at moisture level 5.
+
+
+#### (h)
+```{r}
+seeds_agg$linpred = predict(model.glm_sub2)
+residuals = residuals(model.glm_sub2)
+
+# plot residuals ~ fitted values (linear predictor)
+ggplot(seeds_agg, aes(x=linpred, y=residuals, color=covered)) + 
+    geom_point(size=2) + xlab("fitted linear predictor") + ylab("residuals")
+```
+
+Answer:
+
+The plot of residuals against the fitted linear predictor looks like normally distributed with constant variance (though the variance of residuals for uncovered boxes are larger that for covered boxes), and there is no significant patterns in the residuals. These all indicates that the assumptions of the model are not violated and the model structure is fine.
+
+
+#### (i)
+```{r}
+# plot residuals ~ moisture level
+ggplot(seeds_agg, aes(x=as.factor(moisture), y=residuals, color=covered)) + 
+    geom_point(size=2) + xlab("moisture level") + ylab("residuals")
+```
+
+Answer:
+
+In the plot of residuals against the moisture level, the variance of residuals for uncovered boxes are larger that for covered boxes. And in general, the varaince of residuals for both covered and uncovered boxes look slightly larger at larger moisture levels. These may indicate that the model fits better for covered boxes and at lower moisture levels.
+
+
+#### (j)
+```{r}
+# W matrix
+w = seeds_agg$total * seeds_agg$predgerm/100 * (1 - seeds_agg$predgerm/100)
+W = diag(w)
+
+# hat matrix
+X = model.matrix(model.glm_sub2)
+J = t(X) %*% W %*% X
+H = W^(1/2) %*% X %*% solve(J) %*% t(X) %*% W^(1/2)
+
+# individual leverages (i.e. hatvalues)
+leverages = diag(H)    # or hatvalues(model.glm_sub) or influence(model.glm_sub)$hat
+leverages
+```
+
+
+
+#### (k)
+```{r}
+# plot residuals ~ leverages
+ggplot(seeds_agg, aes(x=leverages, y=residuals, color=covered)) + 
+    geom_point(size=2) + xlab("leverages") + ylab("residuals")
+
+# plot abs(residuals) ~ leverages
+ggplot(seeds_agg, aes(x=leverages, y=abs(residuals), color=covered)) + 
+    geom_point(size=2) + geom_text(aes(label=row.names(seeds_agg)), hjust=1, vjust=1.2) +
+    xlab("leverages") + ylab("abs(residuals)")
+
+# find influential points with large Cook's Distance via half-normal plot
+cook = cooks.distance(model.glm_sub2)
+halfnorm(cook, ylab="Cook's Distances", nlab=3)
+
+# locate observations with large Cook's Distances
+seeds_agg[c(1,5,6), ]
+```
+
+Answer:
+
+In the abs(residuals) against leverages plot, we see that the observations #5 and #6 have large values of residuals, and that observations #1 and #7 havve large values of leverages. However, though being an extreme value in the X range, the observation #7 has nearly zero residual value so it does not largely affect the model for fitting the model quite well. Therefore, we consider the observations #1, #5, and #6 as potential influential points. Then, in the halfnorm plot of the cook's distance, we confirm that these three observations have large cook's distance thus being influential points in the model. The data details of these three observations are also shown above, which are all in the category of uncovered boxes. This again indicates that the model fits not well for uncovered boxes.
+
+
+
+
+### Problem 3
+#### (a)
+```{r}
+library(faraway)
+data(chredlin)
+
+# histogram of "involact"
+library(ggplot2)
+ggplot(chredlin, aes(x=involact)) + 
+    geom_histogram(binwidth=0.05, fill="steelblue") + 
+    labs(title="Histogram of Involact")
+
+# fraction of the zero responses
+n = nrow(chredlin)
+15/n
+```
+
+Answer:
+
+31.91% of the "involact" responses are zeros.
+
+
+#### (b)
+
+Gaussian model:
+
+\(involact_i = \beta_0 + \beta_1 race_i +\beta_2 fire_i +\beta_3 theft_i +\beta_4 age_i +\beta_5 \log(income_i)\)
+```{r}
+# ignore "side" and fit the Gaussian model
+str(chredlin)
+model = lm(involact~race+fire+theft+age+log(income), chredlin)
+summary(model)
+```
+
+Answer:
+
+The variable "log(income)" is not a significant predictor in this model, while the other four variables are all significant predictors. And the variables "race ", "fire", "age" have positive relationships with the response "involact", while the variable "theft" has a negative relationship with the response "involact". Furthermore, the magnitude of all the coefficients of predictors are relatively small. 
+
+
+#### (c)
+```{r}
+# plot residuals ~ fitted values
+ggplot(chredlin, aes(x=model$fitted.values, y=model$residuals, 
+                     color=as.factor(involact==0))) +
+    geom_point() + labs(x="fitted values", y="residuals", color="involact==0")
+```
+
+Answer:
+
+The zero response values presents a linear line in the residuals against fitted values plot. This is because when the response "involact" = 0 (i.e. \(y_i = 0\)), the residuals \(\hat{\epsilon_i} = y_i - \hat{y_i} = - \hat{y_i}\), so the plot for these points has a slope of -1.
+
+Without theses points, the other points in the plot shows that the residuals are uncorrelated, normally distributed, and have nearly constant variance, so the Gaussian linear model assumptions are correct. However, including these points, the plot has a linear trend around the region of zero fitted values, indicating a nonconstant variance of residuals for having an issue of correlated residuals. This may mislead us to think that the Gaussian linear model assumptions are not correct and the model structure may have some problems.
+
+
+#### (d)
+The generalized linear model (GLM) for binary response here is:
+\newline likelihood: \(P(involact_i=y_i|p_i) = p_i^{y_i} (1-p_i)^{1-y_i}, \ y_i=0,1\)
+\newline linear predictor: \(\eta_i = \beta_0 + \beta_1 race_i +\beta_2 fire_i +\beta_3 theft_i +\beta_4 age_i +\beta_5 \log(income_i)\)
+\newline link function (logit): \(\eta_i = \log \frac{p_i}{1-p_i}\)
+\newline
+```{r}
+# create a binary response variable for involact
+chredlin$involact_b = as.numeric(chredlin$involact>0)
+
+# fit a logistic regression model
+model.glm = glm(involact_b~race+fire+theft+age+log(income), chredlin, family=binomial)
+summary(model.glm)
+```
+
+Answer:
+
+In the summary results, none of the predictors is significant in this model, and the residual deviance is nearly zero. This is because of two problems: (1) "algorithm did not converge": the glm() uses an iteratively re-weighted least squares (IRLS) algorithm, and here the algorithm did not converge after the maximum number of allowed Fisher iterations, which is 25 by default. (2) "fitted probabilities numerically 0 or 1 occurred": there indicates the problem of a perfect fit in this model, which means that the fitted probabilities are extremely close to zero or one. 
+
+This is probably due to complete separation, i.e. one group being entirely composed of 0s or 1s. The number of predictors is more than needed and causes overfitting problems, thus the two groups of the response variable are completely linearly separable. Also, in the cases of sparse data, both the complete separation and Hauck-Donner effect may occcur.
+
+
+#### (e)
+Now the linear predictor of the smaller GLM model is:
+\newline linear predictor: \(\eta_i = \beta_0 + \beta_1 race_i  +\beta_2 age_i\)
+\newline
+```{r}
+# fit a smaller GLM model
+model.glm2 = glm(involact_b~race+age, chredlin, family=binomial)
+summary(model.glm2)
+```
+
+Answer:
+
+The z-value, the test statistic of z-statistics, is \(\hat{\beta}/se(\hat{\beta})\), which is approximately normally distributed. When the p-value of the z-statistics is smaller than the significance level \(\alpha\), then we reject the null hypothesis that the coefficient is zero, thus we think the coefficient is significant.
+
+Here in this model summary, we see that the z-statistic of "race" is 1.960 and its p_value is 0.0500, so "race" is significant predictor at 5% significance level. On the other hand, the z-statistic of "age" is 1.669 and its p_value is 0.0952, so "age" is not a significant predictor at 5% significance level.
+
+
+```{r}
+# Difference-in-deviances test for both predictors
+LRT = model.glm2$null.deviance - model.glm2$deviance
+df = model.glm2$df.null - model.glm2$df.residual
+p_val = 1 - pchisq(LRT, df); p_val
+
+# Difference-in-deviances test for single predictors
+drop1(model.glm2, test="Chi")
+```
+
+Answer:
+
+From the difference-in-deviance chi-square test, the results show that both "race" and "age" are significant predictors at 1% significance level, which is not the same with previous z-statistics results.
+
+The difference-in-deviance chi-square test should be preferred for the significance of the predictors, because this is a LRT (likelihood ratio test) that will not be affected by the sparse data effect. However, in some cases, especially with sparse data, the standard errors of z-statistics can be overestimated and so the z-value is too small, which makes the significance of the effect of a predictor could be missed. This is the so called Hauck-Donner effect. Therefore, the difference-in-deviance chi-square test is preferred.
+
+
+#### (f)
+```{r}
+# plot race ~ age
+ggplot(chredlin, aes(x=age, y=race, color=as.factor(involact_b))) +
+    geom_point() + labs(x="age", y="race", color="involact (binary)")
+```
+
+Answer:
+
+The plot shows that when "race" is lower near zero value, the binary responses "involact" are nearly all equal to 0's as well, while "race" becomes larger than zero region, responses "involact" all become 1's. 
+
+This first indicates a significant positive relationship between "race" and "involact", which is consistent with the positive coefficient estimation of "race" and the result of the LRT significance test. 
+
+Second, this also makes the 0's and 1's of binary response "involact" are much easier to be separated. Here only with another one variable "age", in the two dimensional sample space, the binary response "involact" is not yet completely separable. However, this is already close to a complete separation. When adding more covariates like in the previous larger model with five predictors, in the higher dimensional sample space, this will lead to a complete separation case thus causing fitting problems.
+
+On the other hand, for variable "age", we can also see that it has a positive relationship with "involact", but not as significant as "race". This is also consistent with the previous summary output and the LRT significance test.
+
+
+#### (g)
+```{r}
+# fit the binomial model with probit link
+model.glm2_probit = glm(involact_b~race+age, chredlin, family=binomial(link=probit))
+summary(model.glm2_probit)
+drop1(model.glm2_probit, test="Chi")
+
+# compare the coefficients of two models
+coef(model.glm2) / coef(model.glm2_probit)
+```
+
+Answer:
+
+The signs of estimated coefficients are all the same in two models. Plus, their significance levels both in the z-statistics and the difference-in-deviance LRT test statistics are the same for two models. What's more, the null deviances and the degree freedoms of the null models in two model summaries are the same.
+
+However, the estimated coefficents in the logit model are all nearly 1.7 times larger than those in the probit model. And the residual deviances in two model summaries are different. On the other hand, the probit model has a warning sign that "fitted probabilities numerically 0 or 1 occurred" while the logit model is fine.
+
+
+```{r}
+# plot predicted values on the probability scale
+predprob_logit = predict(model.glm2, type="response")
+predprob_probit = predict(model.glm2_probit, type="response")
+
+ggplot(chredlin, aes(x=predprob_logit, y=predprob_probit)) +
+    geom_point() +
+    labs(x="logit link model", y="probit link model", title="predicted probabilities")
+
+# find the relationships of them
+m = lm(predprob_probit~predprob_logit)
+summary(m)
+
+# plot the two tails and the fitted line
+ggplot(chredlin, aes(x=predprob_logit, y=predprob_probit)) +
+    geom_point() + xlim(-0.001, 0.04) + ylim(-0.001, 0.04) +
+    geom_line(aes(x=predprob_logit, y=m$fitted.values), linetype="dashed", color="blue") +
+    labs(x="logit link model", y="probit link model", title="Left Tail")
+
+ggplot(chredlin, aes(x=predprob_logit, y=predprob_probit)) +
+    geom_point() + xlim(0.98, 1.001) + ylim(0.98, 1.001) +
+    geom_line(aes(x=predprob_logit, y=m$fitted.values), linetype="dashed", color="blue") +
+    labs(x="logit link model", y="probit link model", title="Right Tail")
+```
+
+Answer:
+
+The plot shows that the predicted probabilites of two models are basically following a linear relationship with a significant slope of nearly 1. This means that the predicted probabilites of two models are basically the same, especially in the middle range of the predicted probabilites.
+
+However, there seems to have some slightly differences in the two tails regions where the predictted probabilitis are near zero and one. In the left tail region, predicted probabilites of logit link model is slightly larger than that of probit link model. And in the right tail region, predicted probabilites of probit link model is slightly larger than that of logit link model.
+
+
+#### (h)
+
+Answer:
+
+The logit link: \(\eta = \log\frac{p}{1-p} \ \ \Rightarrow \ \ p = \frac{e^\eta}{1+e^\eta}\)
+
+The probit link: \(\eta = \Phi^{-1}(p) \ \ \Rightarrow \ \ p = \Phi(\eta) = P(Z\leq\eta)\)
+
+The logit model uses the cumulative distribution function of the logistic distribution, while the probit model uses the cumulatice distribution function of the standard normal distribution. Therefore, the problit link indicates a normally distributed latent variable in the model, so the probit link model for the binary response is most comparable to the Gaussian linear model, which also assumes that the response variable follows a normal distribution.
+
+Both functions will take any number and rescale it to fall between 0 and 1, hence the linear predictor \(\eta\) can be transformed by the function to yield a predicted probability \(p\). And bth methods will yield similar (though not identical) inferences, as shown in the previous questions.
+
+However, the logit link model has slightly flatter tails, i.e. logit link model has a curve that approaches the axes slower than the that of probit link model.
+
+On the other hand, logit link model is more popular in health sciences like epidemiology partly because its coefficients can be interpreted in terms of odds ratios thus giving better interpretations than the probit link model. And probit link model can be generalized to account for non-constant error variances in heteroskedastic probit models (e.g. in advanced econometric settings) and hence are used in some contexts by economists and political scientists.
+
+

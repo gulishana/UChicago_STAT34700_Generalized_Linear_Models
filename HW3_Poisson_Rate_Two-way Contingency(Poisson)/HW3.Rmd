@@ -1,0 +1,528 @@
+---
+title: "Homework 3"
+author: "Sarah Adilijiang"
+output:
+  pdf_document: default
+  html_notebook: default
+---
+
+### Problem 1
+#### (a)
+```{r}
+library(MASS)
+data(quine)
+```
+
+The GLM model for Poisson (count) response here is:
+\newline likelihood: \(P(Days_i=y_i) = \frac{e^{-\mu_i}\,\mu_i^{y_i}}{y!}, \ y_i=0,1,2,... \)
+\newline linear predictor: \(\eta_i = \beta_0 + \beta_1 Eth_i + \beta_2 Sex_i + (\beta_3\,to\,\beta_5) Age_i + \beta_6 Lrn_i\)
+\newline link function (log-link): \(\eta_i = \log\mu_i\)
+\newline
+```{r}
+# Poisson model (without dispersion)
+m.glm = glm(Days~., quine, family=poisson)
+summary(m.glm)
+```
+
+```{r}
+# quasi-Poisson model (with dispersion)
+m.glm_q = glm(Days~., quine, family=quasipoisson)
+summary(m.glm_q)
+```
+
+Answer:
+
+In the summary of Poisson model, the residual deviance (1696.7) is much larger than the degree of freedom of the model (139), i.e. D >> n-p. And the quasi-Poisson model automatically computes the dispersion parameter, which is 13.16691 >> 1. So the quasi-Poisson model is preferred in this case for the main effects model.
+
+Then let's use the quasi-Poisson model to compare the main effects model with models with two-way interactions. Here F-tests are used for comparing between models and dropping insignificant interaction terms due to dispersion problem.
+
+The linear predictor in the model with all two-way interaction terms is:
+\newline linear predictor: \(\eta_i = \beta_0 + \beta_1 Eth_i + \beta_2 Sex_i + (\beta_3\,to\,\beta_5) Age_i + \beta_6 Lrn_i + \beta_7Eth_i:Sex_i + (\beta_8\,to\,\beta_{10}) Eth_i:Age_i + \beta_{11} Eth_i:Lrn_i + (\beta_{12}\,to\,\beta_{14})Sex_i:Age_i + \beta_{15}Sex_i:Lrn_i + (\beta_{16},\beta_{17})Age_i:Lrn_i\)
+\newline
+```{r}
+# quasi-Poisson model with all two-way interactions
+m.glm_q2 = glm(Days~(Eth+Sex+Age+Lrn)**2, quine, family=quasipoisson)
+summary(m.glm_q2)
+```
+
+```{r}
+# drop one interaction term from the quasi-Poisson model with two-way interactions 
+drop1(m.glm_q2, test="F")
+```
+
+Answer:
+
+The interaction term "Sex:Lrn" has a p-value = 0.926594, which is the most insignificant term in the model, so we drop this interaction term first and then continue to drop the next one.
+
+```{r}
+# fit a new model removing the "Sex:Lrn" term
+m.glm_q3 = glm(Days~Eth+Sex+Age+Lrn+Eth:Sex+Eth:Age+Eth:Lrn+Sex:Age+Age:Lrn, 
+               quine, family=quasipoisson)
+
+# drop a second term from the quasi-Poisson model with two-way interactions 
+drop1(m.glm_q3, test="F")
+```
+
+Answer:
+
+The interaction term "Eth:Lrn" has a p-value = 0.467821, which is the most insignificant term in the model now, so we drop this interaction term and then continue to drop the next one.
+
+```{r}
+# fit a new model removing the "Eth:Lrn" term
+m.glm_q4 = glm(Days~Eth+Sex+Age+Lrn+Eth:Sex+Eth:Age+Sex:Age+Age:Lrn, 
+               quine, family=quasipoisson)
+
+# drop another term
+drop1(m.glm_q4, test="F")
+```
+
+Answer:
+
+The interaction term of "Age:Lrn" has a p-value = 0.468891, which is the most insignificant term in the model now, so we drop this interaction term and then continue to drop the next one.
+
+```{r}
+# fit a new model removing the "Age:Lrn" term
+m.glm_q5 = glm(Days~Eth+Sex+Age+Lrn+Eth:Sex+Eth:Age+Sex:Age, 
+               quine, family=quasipoisson)
+
+# drop another term
+drop1(m.glm_q5, test="F")
+```
+
+Answer:
+
+The interaction term of "Eth:Sex" has a p-value = 0.175310, which is the most insignificant term in the model now, so we drop this interaction term and then continue to drop the next one.
+
+```{r}
+# fit a new model removing the "Eth:Sex" term
+m.glm_q6 = glm(Days~Eth+Sex+Age+Lrn+Eth:Age+Sex:Age, 
+               quine, family=quasipoisson)
+
+# drop another term
+drop1(m.glm_q6, test="F")
+```
+
+Answer:
+
+Now all the terms are significant in this model, so we stop dropping more interaction terms and keep this model as our final model. Let's have a look at the model summary.
+
+```{r}
+# summary of the final quasi-Poisson model
+summary(m.glm_q6)
+
+# compare the final model with original models with and without all the two-way interactions
+anova(m.glm_q, m.glm_q6, test="F")
+anova(m.glm_q6, m.glm_q2, test="F")
+```
+
+Answer:
+
+In the summary of final quasi-Poisson model, the dispersion parameter is 10.88183 >> 1. So the quasi-Poisson model is still preferred than the Poisson model for this model with two-way interaction terms.
+
+Comparing this final quasi-Poisson model with the original main effects quasi-Poisson model without two-way interactions, the p-value of F-test is 0.000443, so the larger final model is preferred.
+
+Comparing this final quasi-Poisson model with the quasi-Poisson model with all the two-way interactions, the p-value of F-test is 0.5717, so the smaller final model is preferred.
+
+Therefore, we agree with keeping this final quasi-Poisson model. And the linear predictor in this final model is:
+\newline linear predictor: \(\eta_i = \beta_0 + \beta_1 Eth_i + \beta_2 Sex_i + (\beta_3\,to\,\beta_5) Age_i + \beta_6 Lrn_i + (\beta_7\,to\,\beta_{9}) Eth_i:Age_i + (\beta_{10}\,to\,\beta_{12})Sex_i:Age_i\)
+
+
+
+#### (b)
+Suppose \(Z \sim Gamma(k,\theta)\), thus \(Z\) has the density \(f(z;k,\theta)=\frac{1}{\Gamma(k)\theta^k}z^{k-1}e^{-z/\theta} \ \ (z\geq0, \ k>0, \ \theta>0)\)
+
+Since \(Y \sim Poisson(Z)\), so \(f_{Y|Z}(y|z) = \frac{e^{-z}\,z^y}{y!}=\frac{e^{-z}\,z^y}{\Gamma(y+1)} \ \ (y=0,1,2,...)\)
+
+So the joint distribution of \(Y\) and \(Z\) is : $$f_{Y,Z}(y,z) = f_{Y|Z}(y|z) \times f_Z(z) = \frac{e^{-z}\,z^y}{\Gamma(y+1)} \times \frac{1}{\Gamma(k)\theta^k}z^{k-1}e^{-z/\theta} = \frac{1}{\Gamma(k)\Gamma(y+1)\theta^k}\,z^{(y+k)-1}\,e^{-z/(\frac{1}{1+1/\theta})}$$
+
+Hence the marginal distribution of \(Y\) is:
+$$f_Y(y) = \int_0^\infty f_{Y,Z}(y,z)\,dz = \int_0^\infty \frac{1}{\Gamma(k)\Gamma(y+1)\theta^k}\,z^{(y+k)-1}\,e^{-z/(\frac{1}{1+1/\theta})}\,dz$$
+$$\to \ \ = \frac{\Gamma(y+k)(\frac{1}{1+1/\theta})^{y+k}}{\Gamma(k)\Gamma(y+1)\theta^k} \int_0^\infty \frac{1}{\Gamma(y+k)(\frac{1}{1+1/\theta})^{y+k}}\,z^{(y+k)-1}\,e^{-z/(\frac{1}{1+1/\theta})}\,dz = \frac{\Gamma(y+k)(\frac{1}{1+1/\theta})^{y+k}}{\Gamma(k)\Gamma(y+1)\theta^k}$$
+
+Therefore, the conditional density of $Z$ given $Y$ is:
+$$f_{Z|Y}(z|y) = \frac{f_{Y,Z}(y,z)}{f_Y(y)} = \frac{\frac{1}{\Gamma(k)\Gamma(y+1)\theta^k}\,z^{(y+k)-1}\,e^{-z/(\frac{1}{1+1/\theta})}}{\frac{\Gamma(y+k)(\frac{1}{1+1/\theta})^{y+k}}{\Gamma(k)\Gamma(y+1)\theta^k}} = \frac{1}{\Gamma(y+k)(\frac{1}{1+1/\theta})^{y+k}}\,z^{(y+k)-1}\,e^{-z/(\frac{1}{1+1/\theta})}$$
+where $z\geq0, \ k'=y+k>0, \ \theta'=\frac{1}{1+1/\theta}>0$
+
+So the conditional density of $Z$ given $Y$ is also from the $Gamma$ family: $Z|Y=y \sim Gamma(k',\theta')$
+
+When $Z \sim Gamma(k=\mu\phi, \ \theta=1/\phi)$, plugging in the values of $k$ and $\theta$, we get that:
+$$Z|Y=y \sim Gamma(k'=y+\mu\phi, \ \ \theta'=\frac{1}{1+\phi})$$
+
+
+
+#### (c)
+From question (b), we have derived that:
+$$f_Y(y) = \frac{\Gamma(y+k)(\frac{1}{1+1/\theta})^{y+k}}{\Gamma(k)\Gamma(y+1)\theta^k} = \frac{\Gamma(y+k)}{\Gamma(k)\Gamma(y+1)} (\frac{1}{1+1/\theta})^{y} (\frac{1/\theta}{1+1/\theta})^{k} = \frac{\Gamma(y+k)}{\Gamma(k)\Gamma(y+1)} (\frac{1}{1+1/\theta})^{y} (1-\frac{1}{1+1/\theta})^{k}$$
+Since $k>0$ and $\theta>0$, we can get that $r=k>0$ and $0<p=\frac{1}{1+1/\theta}<1$, so the marginal of $Y$ has a negative binomial distribution: $f(y;r,p) = \frac{\Gamma(y+r)}{\Gamma(r)\Gamma(y+1)} p^{y} (1-p)^{r}$, where $y$ is the number of trials until the $r^{th}$ success, and $1-p$ is the probability of success in the independent trials.
+
+When $Z \sim Gamma(k=\mu\phi, \ \theta=1/\phi)$, plugging in the values of $k$ and $\theta$, we get that:
+$$r=k=\mu\phi, \ \ \ p=\frac{1}{1+1/\theta}=\frac{1}{1+\phi}$$ 
+
+So the marginal of $Y$ has a negative binomial distribution: $$f(y;\mu,\phi) = \frac{\Gamma(y+\mu\phi)}{\Gamma(\mu\phi)\Gamma(y+1)} (\frac{1}{1+\phi})^{y} (1-\frac{1}{1+\phi})^{\mu\phi}$$
+
+and the mean and varaince are:
+$$E(Y)=\frac{rp}{1-p}=\frac{\mu\phi/(1+\phi)}{1-1/(1+\phi)}=\mu, \ \ \ Var(Y)=\frac{rp}{(1-p)^2}=\frac{\mu\phi/(1+\phi)}{(1-1/(1+\phi))^2}=\mu(1+\phi)/\phi$$
+
+Therefore, $Var(Y)\neq E(Y)$, which defines a probability model with Poisson observations but a latent $Gamma$ variable yielding a variance that is not equal to the mean.
+
+
+
+#### (d)
+When $Z \sim Gamma(k=\nu, \ \theta=\mu/\nu)$, just changing the parameter values, we still can derive as shown above that the conditional density of $Z$ given $Y$ is from the $Gamma$ family: $Z|Y=y \sim Gamma(k',\theta')$
+
+Plugging in the values of $k$ and $\theta$, we get that:
+$$Z|Y=y \sim Gamma(k'=y+k=y+\nu, \ \ \theta'=\frac{1}{1+1/\theta}=\frac{1}{1+\nu/\mu})$$
+
+Also, we can derive as shown above that the marginal of $Y$ has a negative binomial distribution: $f(y;r,p) = \frac{\Gamma(y+r)}{\Gamma(r)\Gamma(y+1)} p^{y} (1-p)^{r}$, where $y$ is the number of trials until the $r^{th}$ success, and $1-p$ is the probability of success in the independent trials.
+
+Plugging in the values of $k$ and $\theta$, we get that:
+$$r=k=\nu, \ \ \ p=\frac{1}{1+1/\theta}=\frac{1}{1+\nu/\mu}=\frac{\mu}{\mu+\nu}$$ 
+
+So the marginal of $Y$ has a negative binomial distribution: $$f(y;\mu,\nu) = \frac{\Gamma(y+\nu)}{\Gamma(\nu)\Gamma(y+1)} (\frac{\mu}{\mu+\nu})^{y} (1-\frac{\mu}{\mu+\nu})^{\nu}$$
+
+and the mean and varaince are:
+$$E(Y)=\frac{rp}{1-p}=\frac{\nu\mu/(\mu+\nu)}{1-\mu/(\mu+\nu)}=\mu, \ \ \ Var(Y)=\frac{rp}{(1-p)^2}=\frac{\nu\mu/(\mu+\nu)}{(1-\mu/(\mu+\nu))^2}=(\mu+\nu)\mu/\nu$$
+
+Therefore, $Var(Y)\neq E(Y)$, which also defines a probability model with Poisson observations but a latent $Gamma$ variable yielding a variance that is not equal to the mean.
+
+
+
+#### (e)
+From question (d), we get that the marginal of $Y$ has a negative binomial distribution: $$f(y;\mu,\nu) = \frac{\Gamma(y+\nu)}{\Gamma(\nu)\Gamma(y+1)} (\frac{\mu}{\mu+\nu})^{y} (1-\frac{\mu}{\mu+\nu})^{\nu} = \frac{\Gamma(y+\nu)}{\Gamma(\nu)\Gamma(y+1)} \ exp\{y\log(\frac{\mu}{\mu+\nu}) + \nu\log(1-\frac{\mu}{\mu+\nu})\}$$
+
+When $\nu$ is known, set $\theta = \log(\frac{\mu}{\mu+\nu}), \ \ b(\theta) = -\nu\log(1-\frac{\mu}{\mu+\nu}) = -\nu\log(1-e^\theta), \ \ a(\phi)=1, \ \ C(y,\phi)=\frac{\Gamma(y+\nu)}{\Gamma(\nu)\Gamma(y+1)}$, hence the negative binomial distribution has the exponential family form: $f(y;\theta,\phi)=exp\{\frac{y\theta-b(\theta)}{a(\phi)}\}\,C(y,\phi)$
+
+So $b'(\theta)=\frac{\nu e^\theta}{1-e^\theta}$, and its inverse function is $b'^{-1}(\theta) = \log(\frac{\theta}{\theta+\nu})$
+
+Thus the canomical link here is $\eta = g(\mu) = b'^{-1}(\mu) = \log(\frac{\mu}{\mu+\nu})$
+
+
+
+#### (f)
+```{r}
+# aggregate the data 
+# and compute the mean and variance of the counts for each combination of factors
+library(dplyr)
+quine_agg = quine %>% group_by(Eth,Sex,Age,Lrn) %>% summarise(Mean=mean(Days), Var=var(Days))
+```
+
+In question (d), we have derived that: $E(Y)=\mu, \ \ \ Var(Y)=(\mu+\nu)\mu/\nu = \mu + \mu^2/\nu$, thus we can fit a model with function: $Var \sim 1 \times Mean + \beta \times Mean^2$, so we can get the value of $\nu$ as $\hat{\nu} = 1/\hat{\beta}$
+
+```{r}
+# fit a model: Var ~ Mean + beta * Mean^2
+model = lm(Var~offset(Mean)+I(Mean^2)-1, quine_agg)
+summary(model)
+
+# value of v
+nu = 1/coef(model); nu
+
+# plot Var~Mean
+plot(Var~Mean, quine_agg, ylab="Variance")
+x=seq(1,40,0.001)
+lines(x,predict(model,data.frame(Mean=x)))
+```
+
+Answer:
+
+As shown in the summary, this model fits well and the coefficient is very significant, so we can get that: $\hat{\nu} = 1/\hat{\beta} = 2.153812$, so we fit following model using the negative-binomial family in the glm function with an estimated $\hat{\nu} = 2.153812$.
+
+First, as in question (a), we fit a model with only main effects. The GLM model for Negative Binomial (count) response here is:
+\newline likelihood: \(P(Days_i=y_i) = \frac{\Gamma(y_i+\nu)}{\Gamma(\nu)\Gamma(y_i+1)} (\frac{\mu_i}{\mu_i+\nu})^{y_i} (1-\frac{\mu_i}{\mu_i+\nu})^{\nu}, \ y_i=0,1,2,... \)
+\newline linear predictor: \(\eta_i = \beta_0 + \beta_1 Eth_i + \beta_2 Sex_i + (\beta_3\,to\,\beta_5) Age_i + \beta_6 Lrn_i\)
+\newline link function (logit): \(\eta_i = \log(\frac{\mu_i}{\mu_i+\nu})\)
+\newline
+```{r}
+# fit a Negative Binomial main effects model with nu=2.153812
+library(MASS)
+m.glm_nb = glm(Days~., negative.binomial(nu), quine)
+summary(m.glm_nb)
+```
+
+Answer:
+
+In the model summary, dispersion parameter = 1.582495 > 1, so F-tests will be used for comparing between models and dropping insignificant interaction terms due to dispersion problem.
+
+Then fit a Negative Binomial model with all the two-way interaction terms. The linear predictor in this model is:
+\newline linear predictor: \(\eta_i = \beta_0 + \beta_1 Eth_i + \beta_2 Sex_i + (\beta_3\,to\,\beta_5) Age_i + \beta_6 Lrn_i + \beta_7Eth_i:Sex_i + (\beta_8\,to\,\beta_{10}) Eth_i:Age_i + \beta_{11} Eth_i:Lrn_i + (\beta_{12}\,to\,\beta_{14})Sex_i:Age_i + \beta_{15}Sex_i:Lrn_i + (\beta_{16},\beta_{17})Age_i:Lrn_i\)
+\newline
+```{r}
+# Negative Binomial model with all two-way interactions
+m.glm_nb2 = glm(Days~(Eth+Sex+Age+Lrn)**2, negative.binomial(nu), quine)
+summary(m.glm_nb2)
+```
+
+```{r}
+# drop one interaction term from the Negative Binomial model with two-way interactions 
+drop1(m.glm_nb2, test="F")
+```
+
+Answer:
+
+The interaction term "Sex:Lrn" has a p-value = 0.889507, which is the most insignificant term in the model, so we drop this interaction term first and then continue to drop the next one.
+
+```{r}
+# fit a new model removing the "Sex:Lrn" term
+m.glm_nb3 = glm(Days~Eth+Sex+Age+Lrn+Eth:Sex+Eth:Age+Eth:Lrn+Sex:Age+Age:Lrn, 
+               negative.binomial(nu), quine)
+
+# drop a second term from the Negative Binomial model with two-way interactions 
+drop1(m.glm_nb3, test="F")
+```
+
+Answer:
+
+The interaction term "Eth:Lrn" has a p-value = 0.862774, which is the most insignificant term in the model now, so we drop this interaction term and then continue to drop the next one.
+
+```{r}
+# fit a new model removing the "Eth:Lrn" term
+m.glm_nb4 = glm(Days~Eth+Sex+Age+Lrn+Eth:Sex+Eth:Age+Sex:Age+Age:Lrn, 
+               negative.binomial(nu), quine)
+
+# drop another term
+drop1(m.glm_nb4, test="F")
+```
+
+Answer:
+
+The interaction term of "Eth:Sex" has a p-value = 0.277312, which is the most insignificant term in the model now, so we drop this interaction term and then continue to drop the next one.
+
+```{r}
+# fit a new model removing the "Eth:Sex" term
+m.glm_nb5 = glm(Days~Eth+Sex+Age+Lrn+Eth:Age+Sex:Age+Age:Lrn, 
+               negative.binomial(nu), quine)
+
+# drop another term
+drop1(m.glm_nb5, test="F")
+```
+
+Answer:
+
+The interaction term of "Age:Lrn" has a p-value = 0.163161, which is the most insignificant term in the model now, so we drop this interaction term and then continue to drop the next one.
+
+```{r}
+# fit a new model removing the "Age:Lrn" term
+m.glm_nb6 = glm(Days~Eth+Sex+Age+Lrn+Eth:Age+Sex:Age, 
+               negative.binomial(nu), quine)
+
+# drop another term
+drop1(m.glm_nb6, test="F")
+```
+
+Answer:
+
+Now all the terms are significant in this model, so we stop dropping more interaction terms and keep this model as our final Negative Binomial model. Let's have a look at the model summary.
+
+```{r}
+# summary of the final Negative Binomial model
+summary(m.glm_nb6)
+
+# compare the final model with original models with and without all the two-way interactions
+anova(m.glm_nb, m.glm_nb6, test="F")
+anova(m.glm_nb6, m.glm_nb2, test="F")
+```
+
+Answer:
+
+Comparing this final Negative Binomial model with the original main effects Negative Binomial model without two-way interactions, the p-value of F-test is 0.000459, so the larger final model is preferred.
+
+Comparing this final Negative Binomial model with the Negative Binomial model with all the two-way interactions, the p-value of F-test is 0.3129, so the smaller final model is preferred.
+
+Therefore, we agree with keeping this final Negative Binomial model. And the linear predictor in this final model is:
+\newline linear predictor: \(\eta_i = \beta_0 + \beta_1 Eth_i + \beta_2 Sex_i + (\beta_3\,to\,\beta_5) Age_i + \beta_6 Lrn_i + (\beta_7\,to\,\beta_{9}) Eth_i:Age_i + (\beta_{10}\,to\,\beta_{12})Sex_i:Age_i\)
+
+Finally, let's compare the final Negative Binomial model with the above final quasi-Poisson model in question (a). The selected two-way interaction predictors are the same in the linear predictor equations in both models. However, the residual deviance of the Negative Binomial model is much smaller than that of the quasi-Poisson model, hence the dispersion parameter of Negative Binomial model is much smaller  as well. Therefore, the Negative Binomial model is preferred in this case.
+
+
+
+
+
+
+### Problem 2
+#### (a)
+Since the observed mean number of children born per woman in each combination of factors depends on the sample sizes, namely the number of woman in each category, and the sample sizes in each category are different in this problem. Therefore, we should use a rate Poisson model.
+
+To model the rate, i.e. the mean number of children born per woman - "$childrate$" , while still maintaining the count response, i.e. the total number of children of all women in each given combination of factors - "$numchild$", in the Poisson model, we will use the log link connection:
+$$\log(childrate) =\log(\frac{numchild}{numwomen}) =\eta \sim years + location + education$$
+$$\Rightarrow \ \ \log(numchild_i) = 1 \times \log(numwomen_i) + \beta_0 + (\beta_1to\beta_5)\,years_i + \beta_6\,location_i + (\beta_7to\beta_9)\,education_i$$
+where the coefficients of each levels of factor variables "years", "location", and "education" will be estimated by the model.
+
+```{r}
+# create the dataset
+childrate = c(1.17,0.85,1.05,0.69,0.97,0.96,0.97,0.74,
+              2.54,2.65,2.68,2.29,2.44,2.71,2.47,2.24,
+              4.17,3.33,3.62,3.33,4.14,4.14,3.94,3.33,
+              4.70,5.36,4.60,3.80,5.06,5.59,4.50,2.00,
+              5.36,5.88,5.00,5.33,6.46,6.34,5.74,2.50,
+              6.52,7.51,7.54, NA ,7.48,7.81,5.80, NA )
+numwomen = c(12,27,39,51,62,102,107,47,
+             13,37,44,21,70,117,81,21,
+             18,43,29,15,88,132,50,9,
+             23,42,20,15,114,86,30,1,
+             22,25,13,3,117,68,23,2,
+             46,45,13,0,195,59,10,0)
+numchild = round(childrate * numwomen)  # get integer count numbers
+
+years = gl(6,8,48,labels=c("<5","5-9","10-14","15-19","20-24","25+"))
+location = gl(2,4,48,labels=c("Urban","Rural"))
+education = gl(4,1,48,labels=c("None","Lower","Upper","Secondary"))
+
+child_data = data.frame(childrate, numwomen, years, location, education, numchild)
+
+# fit the rate Poisson model
+m.glm_rate = glm(numchild ~ offset(log(numwomen))+years+location+education, 
+                 child_data, family=poisson)
+summary(m.glm_rate)
+
+# plot residuals ~ fitted linear predictor
+plot(residuals(m.glm_rate)~predict(m.glm_rate),
+     xlab="linear predictor", ylab="residuals")
+abline(h=0)
+
+# significance of the rate Poisson model (chi-square LRT)
+p_val = 1 - pchisq(deviance(m.glm_rate), df.residual(m.glm_rate)); p_val
+
+# significance of each factor variables
+drop1(m.glm_rate, test="Chi")
+
+# dispersion parameter of quasi-Poisson model
+m.glm_rate_q = glm(numchild ~ offset(log(numwomen))+years+location+education, 
+                 child_data, family=quasipoisson)
+summary(m.glm_rate_q)$dispersion
+```
+
+Model Adequacy:
+
+The residuals against linear predictor plot shows no significant abnormalities in the distribution of residuals. And the likelihood ratio test (chi-square) has a p-value = 0.755961 (against the saturated full model), so our rate Poisson model fits very well. Also, all the three factor variables are shown to be significant predictors. 
+
+Further, in the model summary, the residual deviance is 29.831 on 36 degrees of freedom, indicating a dispersion parameter smaller than one. The actual dispersion parameter (0.8014253) is consistent with this diagnostics. Therefore, a quasi-Poisson model is not needed in this case.
+
+
+
+
+#### (b)
+In question (a), we have shown that all the three factor variables are significant predictors. Let's look at the exponentials of their estimated parameters as well.
+```{r}
+# exponentials of estimated parameters
+exp(coef(m.glm_rate))
+```
+
+Answer:
+
+As shown in question (a), the model is:
+$$\log(numchild_i) = 1 \times \log(numwomen_i) + \beta_0 + (\beta_1to\beta_5)\,years_i + \beta_6\,location_i + (\beta_7to\beta_9)\,education_i$$
+i.e. $$\log(childrate_i) =\log(\frac{numchild_i}{numwomen_i}) = \beta_0 + (\beta_1to\beta_5)\,years_i + \beta_6\,location_i + (\beta_7to\beta_9)\,education_i$$
+
+Take the predictor "location" as an example, which has two levels: "Urban"(reference level) and "Rural". When controlling the other two predictors, we have equation:
+$$\log(\frac{childrate_{Rural}}{childrate_{Urban}})  = \log(childrate_{Rural}) - \log(childrate_{Urban}) = \beta_6$$
+so $$\frac{childrate_{Rural}}{childrate_{Urban}} = e^{\beta_6}$$
+Hence when $\beta_6>0$, i.e. $e^{\beta_6}>1$, we get $childrate_{Rural}>childrate_{Urban}$, and $childrate_{Rural}$ is $e^{\beta_6}$ times of the value of $childrate_{Urban}$.
+
+Therefore, as a summary, there are three factor predictors in the model: 
+
+"years" has 6 levels with the first level "5-9" being the reference level, so it has 5 parameters from $\beta_1$ to $\beta_5$, each showing the difference of fertility rate between these levels and the reference level "5-9" when controlling the other two predictors the same. Results of parameters show that as the years since first marriage increases, the fertility rate of women increases.
+
+"location" has 2 levels with the first level "Urban" being the reference level, so it has 1 parameters $\beta_6$, showing the difference of fertility rate between level "Rural" and the reference level "Urban" when controlling the other two predictors the same. Result of the parameter shows that the fertility rate of women in rural area is higher than that of women in urban area.
+
+"education" has 4 levels with the first level "None" being the reference level, so it has 3 parameters from $\beta_7$ to $\beta_9$, each showing the difference of fertility rate between these levels and the reference level "None" when controlling the other two predictors the same. Results of parameters show that the fertility rate of women with lower elementary education is higher than that of women with none education. However, the fertility rate of women with upper elementary education and sencondary or higher education are both lower than that of women with none education. And the the fertility rate of women with sencondary or higher education is even lower than that of women with upper elementary education.
+
+
+
+
+#### (c)
+```{r}
+# years since first marriage: "10-14"
+# get the fitted values and standard errors
+newdata = data.frame(location="Urban", education="Upper", years="10-14", numwomen=1)
+preds = predict(m.glm_rate, newdata, se.fit=TRUE)
+fit = preds$fit
+se = preds$se.fit
+
+# compute the 95% CI
+z = qnorm(0.975,0,1)
+log_CI = c(fit-z*se, fit+z*se)
+CI = exp(log_CI); CI
+```
+
+Answer:
+
+The 95% confidence interval for the mean number of children born to an urban woman with upper elmentary education and 10-14 years since first marriage is (3.335226,3.886271).
+
+```{r}
+# years since first marriage: "15-19"
+# get the fitted values and standard errors
+newdata = data.frame(location="Urban", education="Upper", years="15-19", numwomen=1)
+preds = predict(m.glm_rate, newdata, se.fit=TRUE)
+fit = preds$fit
+se = preds$se.fit
+
+# compute the 95% CI
+z = qnorm(0.975,0,1)
+log_CI = c(fit-z*se, fit+z*se)
+CI = exp(log_CI); CI
+```
+
+Answer:
+
+The 95% confidence interval for the mean number of children born to an urban woman with upper elmentary education and 15-19 years since first marriage is (4.296754,4.998823).
+
+```{r}
+# years since first marriage: "20-24"
+# get the fitted values and standard errors
+newdata = data.frame(location="Urban", education="Upper", years="20-24", numwomen=1)
+preds = predict(m.glm_rate, newdata, se.fit=TRUE)
+fit = preds$fit
+se = preds$se.fit
+
+# compute the 95% CI
+z = qnorm(0.975,0,1)
+log_CI = c(fit-z*se, fit+z*se)
+CI = exp(log_CI); CI
+```
+
+Answer:
+
+The 95% confidence interval for the mean number of children born to an urban woman with upper elmentary education and 20-24 years since first marriage is (5.132516,5.993654).
+
+```{r}
+# years since first marriage: "25+"
+# get the fitted values and standard errors
+newdata = data.frame(location="Urban", education="Upper", years="25+", numwomen=1)
+preds = predict(m.glm_rate, newdata, se.fit=TRUE)
+fit = preds$fit
+se = preds$se.fit
+
+# compute the 95% CI
+z = qnorm(0.975,0,1)
+log_CI = c(fit-z*se, fit+z*se)
+CI = exp(log_CI); CI
+```
+
+Answer:
+
+The 95% confidence interval for the mean number of children born to an urban woman with upper elmentary education and 25+ years since first marriage is (6.204893,7.189320).
+
+
+
+
+#### (d)
+```{r}
+# years since first marriage: "25+"
+# get the fitted values and standard errors
+newdata = data.frame(location="Rural", education="Secondary", years="25+", numwomen=1)
+preds = predict(m.glm_rate, newdata, se.fit=TRUE)
+fit = preds$fit;   exp(fit)
+se = preds$se.fit
+
+# compute the 90% CI
+z = qnorm(0.95,0,1)
+log_CI = c(fit-z*se, fit+z*se)
+CI = exp(log_CI); CI
+```
+
+Answer:
+
+The estimation for the lifetime (25+ years since first marriage) average number of children born to an rural woman with secondary or higher education is about 6 children, and its 90% confidence interval is (5.422105,6.698772).
+
+
+
+

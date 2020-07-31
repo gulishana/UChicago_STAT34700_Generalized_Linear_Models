@@ -1,0 +1,407 @@
+---
+title: "Homework 5"
+author: "Sarah Adilijiang"
+output:
+  pdf_document: default
+  html_notebook: default
+---
+
+## Problem 1
+### (a)
+Set $Z = \frac{Y-\mu}{\mu}$, so $Y = \mu(1+Z)$
+$$\Rightarrow \ \ E(Z) = \frac{E(Y)-\mu}{\mu} = 0, \ \ Var(Z) = \frac{Var(Y)}{\mu^2} = \frac{1}{\mu}, \ \ E(Z^2) = Var(Z)+(E(Z))^2=\frac{1}{\mu}$$
+
+Set $\sqrt{Y} = \sqrt{\mu(1+Z)} = g(Z)$, where $g'(Z) = \frac{\sqrt{\mu}}{2\sqrt{1+Z}}$ and $g''(Z) = -\frac{\sqrt{\mu}}{4(1+Z)^{3/2}}$
+
+From Taylor expansion, we have: 
+$$g(Z) = g(0) + \frac{g'(0)}{1!}(Z-0) + \frac{g''(0)}{2!}(Z-0)^2 + ... + \frac{g^{(k)}(0)}{k!}(Z-0)^k + ...$$
+$$i.e. \ \ \sqrt{Y} = \sqrt{\mu} + \frac{\sqrt{\mu}}{2}Z - \frac{\sqrt{\mu}}{8}Z^2 + O(Z^3)$$
+$$\Rightarrow \ \ E(\sqrt{Y}) \approx \sqrt{\mu} + \frac{\sqrt{\mu}}{2}E(Z) - \frac{\sqrt{\mu}}{8}E(Z^2) = \sqrt{\mu} - \frac{\sqrt{\mu}}{8\mu} =  \sqrt{\mu}(1-\frac{1}{8\mu})$$
+$$Var(\sqrt{Y}) \approx Var(\sqrt{\mu} + \frac{\sqrt{\mu}}{2}Z) = \frac{\mu Var(Z)}{4} = \frac{1}{4}$$
+
+
+
+### (b)
+The GLM model for Poisson (count) response here is:
+\newline likelihood: \(P(breaks_i=y_i) = \frac{e^{-\mu_i}\,\mu_i^{y_i}}{y_i!}, \ y_i=0,1,2,... \)
+\newline linear predictor: \(\eta_i = \beta_0 + \beta_1 1_{wool_i=B} + \beta_2 1_{tension_i=M} + \beta_3 1_{tension_i=H}\)
+\newline link function (log-link): \(\eta_i = \log\mu_i\)
+\newline
+```{r}
+data(warpbreaks)
+
+# fit the Poisson model
+mod1 = glm(breaks~wool+tension, warpbreaks, family=poisson)
+
+# plot residuals ~ fitted values
+plot(residuals(mod1)~predict(mod1, type="response"), 
+     ylab="deviance residuals", xlab=expression(paste("fitted values  ", E(Y))))
+abline(h=0)
+
+# model summary
+summary(mod1)
+
+# significance of predictors
+drop1(mod1, test="Chi")
+
+# interpretations of coefficients
+exp(coef(mod1))
+```
+
+Answer:
+
+The plot of "residuals ~ fitted values $E(Y)$" shows no significant abnormalities and looks like normally distributed with constant variance, which indicates that the assumptions of the model are not violated and the model structure is fine.
+
+In the summary of the Poisson model, all the coefficients are very significant. However, the residual deviance is 210.39 on 50 degrees of freedom, which indicates a dispersion problem in this Possion model.
+
+If we ignore the dispersion problem and test the significance of the two predictors with chi-square difference-in-deviance LRT test, we see that the pedictors "wool" and "tension" are both very significant.
+
+To better interpret the effects of the predictors, I calculated the exponentials of the coefficients. We can see that the number of breaks of wool type B is 0.8138425 times as much as that of wool type A when controlling for "tension". And the number of breaks at tension level M is 0.7251908 times as much as that at tension level L when controlling for "wool", while the number of breaks at tension level H is 0.5954198 times as much as that at tension level L when controlling for "wool".
+
+
+
+### (c)
+The linear model with sqrt transformed response here is:
+\newline linear model: \(\sqrt{breaks_i} = \beta_0 + \beta_1 1_{wool_i=B} + \beta_2 1_{tension_i=M} + \beta_3 1_{tension_i=H} + \epsilon_i\)
+\newline
+```{r}
+# fit the sqrt transformed linear model
+mod2 = lm(sqrt(breaks)~wool+tension, warpbreaks)
+
+# plot residuals ~ fitted values
+plot(residuals(mod2)~predict(mod2), 
+     ylab="residuals", xlab=expression(paste("fitted values  ", E(sqrt(Y)))) )
+abline(h=0)
+
+# model summary & interpretations of coefficients
+summary(mod2)
+
+# significance of predictors
+drop1(mod2, test="F")
+```
+
+Answer:
+
+The plot of "residuals ~ fitted values $E(\sqrt{Y})$" shows no significant abnormalities and looks like normally distributed with constant variance, which indicates that the assumptions of the model are not violated and the model structure is fine.
+
+In the summary of the sqrt transformed linear model, the coefficients of "tension's" are significant, but the coefficient of "wool" is not significant. And the p-value of the significance of regression F-test is 0.001615, which indicates a good fit of the model.
+
+When we test the significance of the two predictors with F-test, we see that the pedictor "tension" is very significant while the "wool" is not.
+
+From the values of the estimated coefficients, we can see that the absolute value of $\sqrt{breaks}$ of wool type B is 0.4636 less than that of wool type A when controlling for "tension". And the absolute value of $\sqrt{breaks}$ at tension level M is 0.8306 less than that at tension level L when controlling for "wool", while the absolute value of $\sqrt{breaks}$ at tension level H is 1.3136 less than that at tension level L when controlling for "wool".
+
+
+```{r}
+# Compare the fitted values of mod1 and mod2
+mod1_fitted_Y = unique(predict(mod1, type="response"))
+mod2_fitted_Y = unique(predict(mod2))^2
+rbind(mod1_fitted_Y, mod2_fitted_Y)
+```
+
+Answer:
+
+Here I calculated the $E(Y)$ in the sqrt transformed linear model, which is the square of the fitted values $E(\sqrt{Y})$. Though there are some differences between the two groups of fitted values, their absolute values are quite similar with each other. Thus the sqrt transformed linear model can be used as a good approximation of the Possion model in this case.
+
+
+
+
+
+
+
+## Problem 2
+### (a)
+For $Y \sim Gamma(\alpha,\lambda)$, we have $f_Y(y) = \frac{\lambda^\alpha}{\Gamma(\alpha)}y^{\alpha-1}e^{-\lambda y} \ \ (y\geq0)$
+
+Thus:
+$$E(Y) = \int^\infty_0 yf_Y(y)dy = \int^\infty_0 \frac{\lambda^\alpha}{\Gamma(\alpha)}y^{\alpha}e^{-\lambda y}dy = \frac{\alpha}{\lambda} \int^\infty_0 \frac{\lambda^{\alpha+1}}{\Gamma(\alpha+1)}y^{(\alpha+1)-1}e^{-\lambda y}dy = \frac{\alpha}{\lambda}$$
+$$E(Y^2) = \int^\infty_0 y^2f_Y(y)dy = \int^\infty_0 \frac{\lambda^\alpha}{\Gamma(\alpha)}y^{\alpha+1}e^{-\lambda y}dy = \frac{\alpha(\alpha+1)}{\lambda^2} \int^\infty_0 \frac{\lambda^{\alpha+2}}{\Gamma(\alpha+2)}y^{(\alpha+2)-1}e^{-\lambda y}dy = \frac{\alpha(\alpha+1)}{\lambda^2}$$
+$$\Rightarrow \ \ Var(Y) = E(Y^2) - (E(Y))^2 = \frac{\alpha(\alpha+1)}{\lambda^2} - \frac{\alpha^2}{\lambda^2} = \frac{\alpha}{\lambda^2}$$
+
+Plug in $\alpha = \nu, \ \lambda = \nu/\mu$,  we get: $E(Y) = \mu, \ Var(Y) = \mu^2/\nu$
+
+So $\sigma^2 = Var(Y)/(E(Y))^2 = (\mu^2/\nu)/\mu^2 = 1/\nu$
+
+
+
+### (b)
+From question (a), we get: $E(Y)=\mu, \ Var(Y)= E(Y-\mu)^2 =\mu^2/\nu, \ \sigma^2=1/\nu$
+
+Set $g(Y) = \log{Y}$, where $g'(Y) = \frac{1}{Y}$ and $g''(Y) = -\frac{1}{Y^2}$
+
+From Taylor expansion, we have: 
+$$g(Y) = g(\mu) + \frac{g'(\mu)}{1!}(Y-\mu) + \frac{g''(\mu)}{2!}(Y-\mu)^2 + ... + \frac{g^{(k)}(\mu)}{k!}(Y-\mu)^k + ...$$
+$$i.e. \ \ \log{Y} = \log{\mu} + \frac{1}{\mu}(Y-\mu) - \frac{1}{2\mu^2}(Y-\mu)^2 + O((Y-\mu)^3)$$
+$$\Rightarrow \ \ E(\log{Y}) \approx \log{\mu} + \frac{1}{\mu}E(Y-\mu) - \frac{1}{2\mu^2}E(Y-\mu)^2 = \log{\mu} - \frac{1}{2\mu^2}\mu^2/\nu = \log{\mu} - \frac{1}{2\nu} = \log{\mu} - \sigma^2/2$$
+$$Var(\log{Y}) \approx Var(\log{\mu} + \frac{1}{\mu}(Y-\mu)) = \frac{Var(Y)}{\mu^2} = \frac{\mu^2/\nu}{\mu^2} = 1/\nu = \sigma^2$$
+
+
+
+### (c)
+For $Y \sim Gamma(\alpha,\lambda)$, we have $f_Y(y) = \frac{\lambda^\alpha}{\Gamma(\alpha)}y^{\alpha-1}e^{-\lambda y} \ \ (y\geq0)$
+
+Set $X = \log{Y}$, i.e.$Y=e^X$, so we have: $E(X)=M'(t)|_{t=0}, \ E(X^2)=M''(t)|_{t=0}$
+
+Thus:
+$$M(t) = E(e^{xt}) = E(y^t) = \int^\infty_0 y^tf_Y(y)dy = \int^\infty_0 \frac{\lambda^\alpha}{\Gamma(\alpha)}y^{\alpha+t-1}e^{-\lambda y}dy = \frac{\Gamma(\alpha+t)}{\Gamma(\alpha)\,\lambda^t} \int^\infty_0 \frac{\lambda^{\alpha+t}}{\Gamma(\alpha+t)}y^{(\alpha+t)-1}e^{-\lambda y}dy = \frac{\Gamma(\alpha+t)}{\Gamma(\alpha)\,\lambda^t}$$
+$$\Rightarrow \ \ M'(t) = \frac{\Gamma'(\alpha+t)\Gamma(\alpha)\lambda^t-\Gamma(\alpha+t)\Gamma(\alpha)\lambda^t\log{\lambda}}{\Gamma(\alpha)^2\,\lambda^{2t}} = \frac{\Gamma'(\alpha+t)-\Gamma(\alpha+t)\log{\lambda}}{\Gamma(\alpha)\,\lambda^t}$$
+$$E(\log{Y}) = E(X)=M'(t)|_{t=0} = \frac{\Gamma'(\alpha)-\Gamma(\alpha)\log{\lambda}}{\Gamma(\alpha)} = \psi(\alpha) - \log{\lambda}$$
+
+Then:
+$$\Rightarrow \ \ M''(t) = \frac{\Gamma''(\alpha+t)-2\Gamma'(\alpha+t)\log{\lambda} + \Gamma(\alpha+t)(\log{\lambda})^2}{\Gamma(\alpha)\,\lambda^t}$$
+$$E(X^2)=M''(t)|_{t=0} = \frac{\Gamma''(\alpha)-2\Gamma'(\alpha)\log{\lambda} + \Gamma(\alpha)(\log{\lambda})^2}{\Gamma(\alpha)} = \frac{\Gamma''(\alpha)}{\Gamma(\alpha)} - 2\psi(\alpha)\log{\lambda} + (\log{\lambda})^2$$
+Since $\psi'(x) = \frac{\Gamma''(x)\Gamma(x)-\Gamma'(x)^2}{\Gamma(x)^2} = \frac{\Gamma''(x)}{\Gamma(x)} - \psi(x)^2$, so we have:
+$$E(X^2) = \psi'(\alpha) + \psi(\alpha)^2 - 2\psi(\alpha)\log{\lambda} + (\log{\lambda})^2 = \psi'(\alpha) + (\psi(\alpha)-\log{\lambda})^2$$
+$$\Rightarrow \ \ Var(\log{Y}) = Var(X) = E(X^2) - (E(X))^2 = \psi'(\alpha)$$
+
+Plug in $\alpha = \nu, \ \lambda = \nu/\mu, \ \sigma^2 = 1/\nu$,  we get: 
+$$E(\log{Y}) = \psi(\nu) - \log{(\nu/\mu)} = \log{\mu} + \psi(\nu) - \log{\nu}$$
+$$Var(\log{Y}) = \psi'(\nu)$$
+
+
+
+### (d)
+Since independent observations $Y_i \sim G(\mu_i,\nu)$ for $i=1,..,n$, so the likelihood function is: 
+$$L(\beta) = \prod\limits_{i=1}^{n} f_Y(y_i) = \prod\limits_{i=1}^{n} \frac{\nu^\nu}{\Gamma(\nu)\,\mu_i^\nu} y_i^{\nu-1} \exp(-\frac{\nu}{\mu_i}y_i)$$
+
+Thus the log-likelihood function is:
+$$l(\beta) = \log{L(\beta)} = \sum\limits_{i=1}^{n} -\frac{\nu}{\mu_i}y_i -\nu\log{\mu_i} + \log{\frac{\nu^\nu y_i^{\nu-1}}{\Gamma(\nu)}}$$
+
+Since we are using log-link: $\log{\mu_i} = \eta_i = \alpha + x_i^t\beta$, so $\mu_i = e^{\eta_i}$ and $\frac{\partial\mu_i}{\partial\beta} = \frac{\partial e^{\eta_i}}{\partial\beta} = e^{\eta_i}x_i = \mu_ix_i$
+
+So the score function is:
+$$S(\beta) = \frac{\partial l(\beta)}{\partial\beta} = \sum\limits_{i=1}^{n} \frac{\nu}{\mu_i^2}\frac{\partial\mu_i}{\partial\beta} y_i - \frac{\nu}{\mu_i}\frac{\partial\mu_i}{\partial\beta} = \sum\limits_{i=1}^{n} \frac{\nu}{\mu_i^2}\mu_ix_i y_i - \frac{\nu}{\mu_i}\mu_ix_i = \sum\limits_{i=1}^{n} \frac{\nu}{\mu_i}x_i y_i - \nu x_i = \sum\limits_{i=1}^{n} \frac{y_i-\mu_i}{\mu_i} \nu x_i$$
+
+Therefore, the score function at the estimated $\hat{\beta}$ is: $S(\hat{\beta}) = \sum\limits_{i=1}^{n} \frac{y_i-\hat{\mu_i}}{\hat{\mu_i}} \nu x_i$
+
+Then the information matrix $J$ is:
+$$J = -E[\frac{\partial^2l(\beta)}{\partial\beta^2}] = E[(\frac{\partial l(\beta)}{\partial\beta})^2] = E[S(\beta)^2] = E[S(\beta)S(\beta)^t]$$
+$$= \sum\limits_{i=1}^{n} \frac{E(y_i-\mu_i)^2}{\mu_i^2} \nu^2 x_ix_i^t = \sum\limits_{i=1}^{n} \frac{Var(y_i)}{\mu_i^2} \nu^2 x_ix_i^t = \sum\limits_{i=1}^{n} \frac{\mu_i^2/\nu}{\mu_i^2} \nu^2 x_ix_i^t = \sum\limits_{i=1}^{n} \nu x_ix_i^t = \nu X^TX$$
+where $X$ is the design matrix without intercept terms.
+
+Therefore, the information matrix at the estimated $\hat{\beta}$ is: $J_{\hat{\beta}} = \sum\limits_{i=1}^{n} \nu x_ix_i^t = \nu X^TX$, where $X$ is the design matrix without intercept terms.
+
+Then, since $\hat{\beta} \sim N(\beta, J_{\beta}^{-1})$, we can get the covariance matrix of $\hat{\beta}$ is: $\Sigma_{\hat{\beta}} = J_{\hat{\beta}}^{-1} = (\nu X^TX)^{-1} = \frac{1}{\nu} (X^TX)^{-1}$. 
+
+Plug in the coefficient of variation $\sigma^2 = 1/\nu$ we get that the covariance matrix of $\hat{\beta}$ is: $\Sigma_{\hat{\beta}} = J_{\hat{\beta}}^{-1} = \sigma^2 (X^TX)^{-1}$
+
+
+
+### (e)
+Now we fit the linear model: $E(\log{Y_i}) = \alpha^* + x_i^t\beta^*$, i.e. $\log{Y_i} = \alpha^* + x_i^t\beta^* + \epsilon^*_i$, where $i.i.d. \ \ \epsilon_i^* \sim N(0,\, \sigma^{*2})$
+
+The closed form solution is: $\hat{\beta^*} = (X^TX)^{-1}X^TZ$, where $Z = \log{Y}$, and $X$ is the design matrix without intercept terms.
+
+We have: $\hat{\beta^*} \sim N(\beta, \sigma^{*2}(X^TX)^{-1})$, so the the covariance matrix of $\hat{\beta^*}$ is: $\Sigma_{\hat{\beta^*}} = \sigma^{*2} (X^TX)^{-1}$
+
+From question (c), we get that the exact value of $\sigma^{*2}$ is: $\sigma^{*2} = Var(\log{Y}) = \psi'(\nu)$. However, from question (b), when we're using the variance stabilizing transformation, we have the approximate value of $\sigma^{*2}$, which is: $\sigma^{*2} = Var(\log{Y}) \approx \sigma^2 = 1/\nu$
+
+To sum up, the two covariance matrices have the same form:
+
+(1) $\Sigma_{\hat{\beta}} = J_{\hat{\beta}}^{-1} = \sigma^2 (X^TX)^{-1} = \frac{1}{\nu} (X^TX)^{-1}$, where $\sigma^2$ is the coefficient of variation in the $Gamma(\alpha=\nu,\, \lambda=\nu/\mu)$ distribution model, and $\sigma^2 = 1/\nu$
+
+(2) $\Sigma_{\hat{\beta^*}} = \sigma^{*2} (X^TX)^{-1} = \psi'(\nu) (X^TX)^{-1}$, where $\sigma^{*2}$ is the variance of errors in the linear model.
+
+Though their exact values are not equal, for large n or small $\sigma^*$ (or $\sigma$), approximately we have: $\sigma^{*2} \approx \sigma^2$, i.e. $\Sigma_{\hat{\beta}} \approx \Sigma_{\hat{\beta^*}}$, thus the two covariance matrices will be very similar.
+
+
+
+### (f)
+#### (i)
+```{r}
+load("fly.Rdata")
+
+# relationship between du.sd & duration
+m = lm(du.sd~duration, fly)
+summary(m)
+
+# plot du.sd ~ duration
+plot(du.sd~duration, fly, xlab="mean of duration", ylab="standard deviation of duration")
+x = seq(10,70,0.001)
+lines(x, predict(m, data.frame(duration=x)), lty=2)
+```
+
+Answer:
+
+From question (a), we get that for $Y \sim Gamma(\alpha=\nu,\, \lambda=\nu/\mu)$ distribution, we have: $\frac{SD(Y)}{E(Y)} = \frac{\sqrt{Var(Y)}}{E(Y)} = \sigma = 1/\sqrt{\nu}$, where $\sigma^2$ is the coefficient of variation. So there should be a linear relationship between $SD(Y)$ and $E(Y)$.
+
+From the summary for our data, we can see that the standard deviation of the duration, i.e. $SD(Y)$, does have a significant linear relationship with the mean of the duration, i.e. $E(Y)$. This fitted linear relationship is also shown in the plots. 
+
+Also, the response "duration" is a positive value. Therefore, a Gamma GLM would make sense for this data.
+
+
+
+#### (ii)
+```{r}
+# relationship of log(duration) ~ temp
+m1 = lm(log(duration)~temp, fly)
+summary(m1)
+
+# plot log(duration) ~ temp
+plot(log(duration)~temp, fly, xlab="temperature", ylab="log(mean of duration)")
+x = seq(10,40,0.001)
+lines(x, predict(m1, data.frame(temp=x)), lty=2)
+
+
+# relationship of log(duration) ~ 1/temp
+m2 = lm(log(duration)~I(1/temp), fly)
+summary(m2)
+
+# plot log(duration) ~ 1/temp
+plot(log(duration)~I(1/temp), fly, xlab="1/temperature", ylab="log(mean of duration)")
+x = seq(10,40,0.001)
+lines(1/x, predict(m2, data.frame(temp=x)), lty=2)
+```
+
+Answer:
+
+The plot of "log(duration) ~ temp" presents a hyperbola function like curve, i.e. y~k/x, indicating a liear relationship of "log(duration) ~ 1/temp". 
+
+And I also tried to fit a linear line for both relationships. We can see that the linear relationship between "log(duration)" and "temp" is much less significant than the linear relationship between "log(duration)" and "1/temp". These fitted lines are also shown in the plots. It's obvious that the points lie much better in the line for "log(duration) ~ 1/temp".
+
+Therefore, we should try to fit "duration ~ 1/temp" using log-link in the Gaussian GLM model.
+
+
+
+#### (iii)
+The GLM model for $Y = duration \sim Gamma(\alpha=\nu,\, \lambda=\nu/\mu)$ response here is:
+\newline likelihood: \(f(y_i) = \frac{\nu^\nu}{\Gamma(\nu)\,\mu_i^\nu} y_i^{\nu-1} \exp(-\frac{\nu}{\mu_i}y_i), \ y_i\geq0\)
+\newline linear predictor: \(\eta_i = \beta_0 + \beta_1 \frac{1}{temp_i}\)
+\newline link function (log-link): \(\eta_i = \log\mu_i\), where $\mu_i = E(y_i)$
+\newline
+```{r}
+# fit Gamma GLM
+mod1 = glm(duration~I(1/temp), fly, family=Gamma(link=log), weights=batch)
+
+# plot Pearson residuals ~ temp
+plot(residuals(mod1,"pearson")~temp, fly, 
+     xlab="temperature", ylab="Pearson residuals")
+```
+
+Answer:
+
+There is a quite obvious trend in the Pearson residuals plot, where the Pearson residuals first decreases and then increases. The correlated and not normally distributed residuals indicates some problems existing in the model structure, thus it is not a good fit model in terms of the distribution of residuals.
+
+
+
+#### (iv)
+```{r}
+# plot the curve of fitted values on the plot of the data
+plot(duration~temp, fly, xlab="temperature", ylab="mean of duration")
+x = seq(10,40,0.001)
+lines(x, predict(mod1, data.frame(temp=x), type="response"), lty=2)
+```
+
+Answer:
+
+Most of the data points with low temperatures lie in the estimated curve with a good fit. However, for large values of temperature, especially for those over 30, the data points does not fit in the estimated curve. This also indicates that some changes are needed for the current model.
+
+
+
+#### (v)
+Before the two changes, our model is: $\log{\mu_i} = \beta_0 + \beta_1 \frac{1}{temp_i}$, where $\mu_i = E(y_i)$
+
+Now we first add an additional predictor "temp", so our model becomes: $\log{\mu_i} = \beta_0 + \beta_1 \frac{1}{temp_i} + \beta_2 temp_i$
+
+In the plot of "log(duration) ~ temp" in question (ii), the points first decreases then increases. Since that in our data, the values of "temp" are all positive, so the signs of $\beta_1$ and $\beta_2$ should be the same, i.e. $\beta_1\beta_2>0$.
+
+Therefore:
+
+(1) when $\beta_1>0,\, \beta_2>0$, we have: $\log{\mu_i} = \beta_0 + \beta_1 \frac{1}{temp_i} + \beta_2 temp_i \geq \beta_0 + 2\sqrt{\beta_1\beta_2}$, where the equality is reached when $\beta_1 \frac{1}{temp_i} = \beta_2 temp_i$, i.e. $temp_i = \sqrt{\beta_1/\beta_2}$
+
+(2) when $\beta_1<0,\, \beta_2<0$, we have: $\log{\mu_i} = \beta_0 + \beta_1 \frac{1}{temp_i} + \beta_2 temp_i \leq \beta_0 - 2\sqrt{\beta_1\beta_2}$, where the equality is also reached when $temp_i = \sqrt{\beta_1/\beta_2}$
+
+In either cases, they are adding restrictions on the coefficients, which will reduce the degrees of freedoms and may not let the algorithm reach the optimal model. Therefore, by changing "1/temp" to "1/(temp-d)" we can eliminate these restrictions and also are able to find the best model by choosing an optimal value of constant d.
+
+
+
+#### (vi)
+```{r}
+# find the optimal d with smallest deviance
+d = seq(45,100,0.01)
+dev = NULL
+for (i in 1:length(d)) {
+    model = glm(duration ~ I(1/(temp-d[i])) + temp,  fly, 
+                family=Gamma(link=log), weights=batch)
+    dev[i] = deviance(model)
+}
+
+dev[which.min(dev)]
+d_opt = d[which.min(dev)]; d_opt
+```
+
+Answer:
+
+At optimal $d^* = 58.64$, the Gamma GLM model gets the smallest devaince 0.3182334.
+
+Thus, with the optiaml $d^*$, now our model is: $\log{\mu_i} = \beta_0 + \beta_1 \frac{1}{temp_i-58.64} + \beta_2 temp_i$
+```{r}
+# fit the model with the optimal d
+mod2 = glm(duration ~ I(1/(temp-d_opt)) + temp,  fly, 
+                family=Gamma(link=log), weights=batch)
+summary(mod2)
+```
+
+Answer:
+
+The residual degrees of freedom is $n-p-1 = 23-3-1 = 19$, where $n$ is the number of observations, $p$ is the number of parameters in this model, and $1$ is the degree of freedom used by $d^*$.
+
+To estimate the coefficient of variation $\sigma$ of the Gamma distribution, we have: $\sigma^2 = 1/\nu$, and the dispersion parameter $\phi = 1/\nu$, so:
+$$\hat{\sigma}^2 = \hat{\phi} = \frac{1}{\hat{\nu}} = \frac{X^2}{df}$$
+where $X^2$ is the Pearson's chi-square statistic and $df$ is the residual degrees of freedom, which is 19, not the same as shown in the model summary. 
+
+So we cannot use the dispersion parameter from the model summary directly.
+
+```{r}
+# estimate sigma
+sigma = sqrt(deviance(mod2,type="pearson") / 19);  sigma
+```
+
+Answer:
+
+The estimated $\hat{\sigma}$ for this model is 0.1294184.
+
+Thus, the standardized Pearson residuals $r_i = \frac{r_P}{\hat{\sigma}}$, where $r_P$ is the Pearson residuals.
+```{r}
+# plot standardized residuals ~ temp
+resids = residuals(mod2, type="pearson") / sigma
+plot(resids~temp, fly, xlab="temperature", ylab="standardized residuals")
+abline(h=0)
+```
+
+Answer:
+
+The residuals plot does not have any obvious trend any more, and it looks good and normally distributed with constant variance, which indicates that $mod2$ fits the data much better than $mod1$.
+
+```{r}
+# plot the curve of fitted values on the plot of the data
+plot(duration~temp, fly, xlab="temperature", ylab="mean of duration")
+x = seq(10,40,0.001)
+lines(x, predict(mod2, data.frame(temp=x), type="response"), lty=2)
+```
+
+Answer:
+
+Different from $mod1$, now we see that almost all the data points lie in the estimated curve with a good fit, both for the points in the range of low temperatures and high temperatures. Thus $mod2$ fits the data much better than $mod1$.
+
+
+
+#### (vii)
+The linear model with log transformed response here is:
+\newline linear model: \(\log{duration_i} = \beta_0 + \beta_1 \frac{1}{temp_i-58.64} + \beta_2 temp_i + \epsilon_i\)
+\newline
+```{r}
+# fit a log transformed linear model 
+mod3 = lm(log(duration) ~ I(1/(temp-d_opt)) + temp,  fly)
+
+# compare the coefficients of mod2 & mod3
+summary(mod3)$coefficients
+summary(mod2)$coefficients
+```
+
+Answer:
+
+We see that both the estimated coefficients and the standard errors of the coefficients are very similar to each other in the Gamma GLM model and the log transformed linear model. This is consistent with the conclusions in question (e).
+
+
+
+

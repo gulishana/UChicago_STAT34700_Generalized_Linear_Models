@@ -1,0 +1,181 @@
+---
+title: "HW3 Q1 solution"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE,warning = FALSE)
+```
+
+```{r,message=FALSE}
+library(faraway)
+library(nnet)
+library(MASS)
+data(pneumo)
+library(ggplot2)
+library(dplyr)
+library(knitr)
+set.seed(0)
+options(digits=3)
+```
+
+#(a) 
+
+```{r,message=FALSE}
+pneumo_pool <- data.frame(normal = pneumo$Freq[pneumo$status=='normal'],
+                          mild = pneumo$Freq[pneumo$status=='mild'],
+                          severe = pneumo$Freq[pneumo$status=='severe'],
+                          total = pneumo$Freq[pneumo$status=='normal']+
+                            pneumo$Freq[pneumo$status=='mild']+
+                            pneumo$Freq[pneumo$status=='severe'],
+                          year = pneumo$year[pneumo$status=='normal'])
+
+plot(rep(pneumo_pool$year,3), c(pneumo_pool$normal/pneumo_pool$total,
+                           pneumo_pool$mild/pneumo_pool$total,
+                           pneumo_pool$severe/pneumo_pool$total), type='p', col=1, xlab='Year', ylab='Proportion')
+
+lines(pneumo_pool$year, pneumo_pool$normal/pneumo_pool$total, type='b', col=1)
+lines(pneumo_pool$year, pneumo_pool$mild/pneumo_pool$total, type='b', col=2)
+lines(pneumo_pool$year, pneumo_pool$severe/pneumo_pool$total, type='b', col=3)
+legend("topright",legend=c('normal', 'mild', 'severe'), col=c(1,2,3),lwd=1,pch=1)
+```
+From the plot we can see that the proportion of "normal" significantly decreases as year goes by, while the proportion of "mild" and "severe" increase slowly with year, and more specifically, the increasing trend of "severe" is more significant than that of "mild".
+
+#(b) 
+
+```{r,message=FALSE}
+multinom_1 <- multinom(formula = cbind(normal, mild, severe) ~ year, data = pneumo_pool)
+print("coefficients:")
+summary(multinom_1)$coefficients
+print("T values for year:")
+summary(multinom_1)$coefficients[,2]/summary(multinom_1)$standard.errors[,2]
+print("Residual deviance:")
+print(multinom_1$deviance)
+
+```
+
+The coefficients for predictor "year"" are positive and significant, which suggests that the odds of moving from normal to mild/severe disease will increase over time. Specifically, the slope of "severe"" category is greater than that of "mild"" category, and hence the probability of getting severe disease should grow faster over time than that of getting mild disease.
+
+#(c)
+```{r,message=FALSE,echo=FALSE}
+multinom_2 <- multinom(formula = cbind(normal, mild, severe) ~ log(year), data = pneumo_pool)
+print("coefficients:")
+summary(multinom_2)$coefficients
+print("T values for year:")
+summary(multinom_2)$coefficients[,2]/summary(multinom_2)$standard.errors[,2]
+print("Residual deviance:")
+print(multinom_2$deviance)
+```
+
+We can see that after changing predictor from "year" to "log(year)", the fitting result gets better at least in terms of residual deviance. We have used the multinom function. The difference of deviances can be used to compare likelihoods.
+
+#(d)
+```{r,message=FALSE}
+predict_1 <- data.frame(predict(multinom_1, type="probs"))
+predict_2 <- data.frame(predict(multinom_2, type="probs"))
+
+par(mfrow=c(1,2))
+plot(rep(pneumo_pool$year,3), c(predict_1$normal,
+                           predict_1$mild,
+                           predict_1$severe), type='p', col=1, xlab='Year', ylab='Predicted probability',main='Model in (b)')
+
+lines(pneumo_pool$year, predict_1$normal, type='b', col=1)
+lines(pneumo_pool$year, predict_1$mild, type='b', col=2)
+lines(pneumo_pool$year, predict_1$severe, type='b', col=3)
+legend("topright",legend=c('normal', 'mild', 'severe'), col=c(1,2,3),lwd=1,pch=1,cex = 0.5)
+
+plot(rep(pneumo_pool$year,3), c(predict_2$normal,
+                           predict_2$mild,
+                           predict_2$severe), type='p', col=1, xlab='Year', ylab='Predicted probability',main='Model in (c)')
+
+lines(pneumo_pool$year, predict_2$normal, type='b', col=1)
+lines(pneumo_pool$year, predict_2$mild, type='b', col=2)
+lines(pneumo_pool$year, predict_2$severe, type='b', col=3)
+legend("topright",legend=c('normal', 'mild', 'severe'), col=c(1,2,3),lwd=1,pch=1,cex = 0.5)
+
+```
+
+#(e)
+```{r,message=FALSE}
+pneumo$status <- factor(pneumo$status,levels=c('normal', 'mild', 'severe'))
+polr_3 <- polr(formula = status ~ year, data = pneumo, weights=pneumo$Freq)
+summary(polr_3)
+```
+
+From the result we can see that the estimated value of $\theta_1$ is $3.956$, which is the difference between logit of the probability of "normal" and "mild", for any fixed year.
+
+#(f)
+We'll repeat part (c) and (d) for the proportional odds model) If we use "log(year)" as predictor and fit a proportional odds model, the result is the following. Again 
+
+```{r,message=FALSE}
+pneumo$status <- factor(pneumo$status,levels=c('normal', 'mild', 'severe'))
+polr_4 <- polr(formula = status ~ log(year), data = pneumo, weights=pneumo$Freq)
+summary(polr_4)
+```
+
+```{r,message=FALSE}
+predict_3 <- data.frame(predict(polr_3, type="probs"))
+predict_4 <- data.frame(predict(polr_4, type="probs"))
+
+par(mfrow=c(1,2))
+plot(rep(pneumo_pool$year,3), c(predict_3$normal[1:8],
+                           predict_3$mild[1:8],
+                           predict_3$severe[1:8]), type='p', col=1, xlab='Year', ylab='Predicted probability',main='Model in (b)')
+
+lines(pneumo_pool$year, predict_3$normal[1:8], type='b', col=1)
+lines(pneumo_pool$year, predict_3$mild[1:8], type='b', col=2)
+lines(pneumo_pool$year, predict_3$severe[1:8], type='b', col=3)
+legend("topright",legend=c('normal', 'mild', 'severe'), col=c(1,2,3),lwd=1,pch=1,cex = 0.5)
+
+plot(rep(pneumo_pool$year,3), c(predict_4$normal[1:8],
+                           predict_4$mild[1:8],
+                           predict_4$severe[1:8]), type='p', col=1, xlab='Year', ylab='Predicted probability',main='Model in (c)')
+
+lines(pneumo_pool$year, predict_4$normal[1:8], type='b', col=1)
+lines(pneumo_pool$year, predict_4$mild[1:8], type='b', col=2)
+lines(pneumo_pool$year, predict_4$severe[1:8], type='b', col=3)
+legend("topright",legend=c('normal', 'mild', 'severe'), col=c(1,2,3),lwd=1,pch=1,cex = 0.5)
+
+```
+
+#(g)
+ It can be seen that the fitting results are largely the same.
+
+#(h)
+```{r,message=FALSE}
+pneumo_pool$disease <- pneumo_pool$mild+pneumo_pool$severe
+binomial_5 <- glm(formula = cbind(disease, normal) ~ year, family = binomial,data = pneumo_pool)
+summary(binomial_5)$coefficient[,1:4]
+
+```
+It can be seen that "year" has a significant positive efect on the odds of getting lung disease.
+
+#(i)
+```{r,message=FALSE}
+binomial_6 <- glm(formula = cbind(severe, mild) ~ year, family = binomial, data = pneumo_pool)
+summary(binomial_6)$coefficient[,1:4]
+```
+
+From the result we can see that the "year" effct is not significant in this model. And the probability of a mild disease within the diseased group under temperature $t$ is
+$$\frac{1}{1+\exp(-1.1134+0.0355t)}$$
+
+(j)
+```{r,message=FALSE}
+prob1 <- predict(binomial_5, type='response')
+prob2 <- predict(binomial_6, type='response')
+
+predict_56 <- cbind(1-prob1, prob1*(1-prob2), prob1*prob2)
+predict_56 <- data.frame(normal=predict_56[,1], mild=predict_56[,2], severe=predict_56[,3])
+
+plot(rep(pneumo_pool$year,3), c(predict_56$normal,
+                           predict_56$mild,
+                           predict_56$severe), type='p', col=1, xlab='Year', ylab='Proportion')
+
+lines(pneumo_pool$year, predict_56$normal, type='b', col=1)
+lines(pneumo_pool$year, predict_56$mild, type='b', col=2)
+lines(pneumo_pool$year, predict_56$severe, type='b', col=3)
+legend("topright",legend=c('normal', 'mild', 'severe'), col=c(1,2,3),lwd=1,pch=1)
+
+```
+
+The fitting result is pretty similar to that of multinomial model and proportional odds model.

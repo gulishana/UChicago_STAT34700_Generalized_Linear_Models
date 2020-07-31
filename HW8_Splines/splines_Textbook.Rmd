@@ -1,0 +1,90 @@
+---
+title: "Homework 8"
+author: "Sarah Adilijiang"
+output:
+  pdf_document: default
+  html_notebook: default
+---
+
+ 
+
+```{r}
+data(exa, package="faraway")
+plot(y ~ x, exa,main="Example A")
+lines(m ~ x, exa, lwd=2)
+```
+
+
+
+```{r}
+# linear Regression Splines
+rhs <- function(x,c) ifelse(x>c,x-c,0)
+curve(rhs(x,0.5),0,1)
+(knots <- 0:9/10)
+dm <- outer(exa$x, knots, rhs)
+matplot(exa$x, dm, type="l",col=1, xlab="x", ylab="")
+```
+
+
+```{r}
+lmod <- lm(exa$y ~ dm)
+head(model.matrix(lmod))
+summary(lmod)
+```
+
+```{r}
+plot(y ~ x, exa, col=gray(0.75))
+lines(exa$x, predict(lmod))
+```
+
+
+```{r}
+# cubic Regression Splines: 12 cubic B-splines evenly spaced on the [0,1] interval
+library(splines)
+matplot(bs(x=seq(0,1,length=1000),df=12),type="l",ylab="",col=1)
+```
+
+
+```{r}
+lmod2 <- lm(y ~ bs(x,12),exa)
+head(model.matrix(lmod2))
+summary(lmod2)
+```
+
+
+
+```{r}
+plot(y ~ x, exa, col=gray(0.75))
+lines(m ~ x, exa)
+lines(predict(lmod2) ~ x, exa, lty=2)
+```
+
+
+
+
+```{r}
+# understanding bs()
+x = seq(0,1,length=100)
+
+bs_cubic_B_spline = round(bs(x,df=12), 3)
+matplot(bs_cubic_B_spline, type="l")
+
+bs_quadratic_B_spline = round(bs(x,df=11, degree=2), 3)
+matplot(bs_quadratic_B_spline, type="l")
+
+bs_linear_B_spline = round(bs(x,df=10, degree=1), 3)
+matplot(bs_linear_B_spline, type="l")
+```
+
+
+```{r}
+# understanding ns(): only Natural Cubic Splines
+x = seq(0,1,0.01)
+
+ns_cubic_spline = ns(x,df=5, Boundary.knots=c(0.1,0.9))
+matplot(ns_cubic_spline, type="l")
+```
+
+
+
+

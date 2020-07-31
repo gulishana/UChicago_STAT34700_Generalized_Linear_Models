@@ -1,0 +1,252 @@
+---
+title: "Homework 8"
+author: "Sarah Adilijiang"
+output:
+  pdf_document: default
+  html_notebook: default
+---
+
+## Problem 1
+### (a)
+Since $g$ is a natural cubic spline interpolant to the pairs $(x_n, z_n)$ ($n=1,...,N$), where $a<x_1<...<x_N<b$, so $g''(x)=0$ and $g'''(x)=0$ for $x$ in the two end intervals $[a,x_1] \cup [x_N,b]$, and that $g'''(x) = g'''(x_n^+)$ for $\forall x \in [x_n, x_{n+1}]$ 
+
+Also, since $\tilde{g}$ is any other twice differentiable function on $[a,b]$ that interpolates the pairs $(x_n, z_n)$ ($n=1,...,N$), so at the knots $x_n$'s we have: $\tilde{g}(x_n) = g(x_n) = z_n$ ($n=1,...,N$), thus $h(x_n) = g(x_n) - \tilde{g}(x_n) = 0$ ($n=1,...,N$).
+
+Therefore:
+$$\int_a^b g''(x)h''(x)dx =  \int_a^b g''(x)dh'(x) = g''(x)h'(x)|_a^b - \int_a^b h'(x)dg''(x) =  g''(b)h'(b) - g''(a)h'(a) - \int_a^b g'''(x)h'(x)dx$$
+$$= 0 - \int_{x_1}^{x_N} g'''(x)h'(x)dx = - \sum\limits_{n=1}^{N-1} \int_{x_n}^{x_{n+1}} g'''(x)h'(x)dx = - \sum\limits_{n=1}^{N-1} g'''(x_n^+) \int_{x_n}^{x_{n+1}} h'(x)dx = - \sum\limits_{n=1}^{N-1} g'''(x_n^+) \ h(x)|_{x_n}^{x_{n+1}}$$
+$$= - \sum\limits_{n=1}^{N-1} g'''(x_n^+) \ [h(x_{n+1}) - h(x_n)] = - \sum\limits_{n=1}^{N-1} g'''(x_n^+) \ [0 - 0] = 0$$
+
+
+
+### (b)
+In question (a), we have derived that:
+$$\int_a^b g''(x)h''(x)dx = 0 \ \ \ \Rightarrow \ \ \ \int_a^b g''(x)\ [g''(x)-\tilde{g}''(x)]dx = 0 \ \ \ \Rightarrow \ \ \ \int_a^b g''(x)^2 dx = \int_a^b g''(x) \tilde{g}''(x) dx$$
+
+Therefore, by Cauchy-Schwarz Inequality, we can obtain that:
+$$\left( \int_a^b g''(x)^2 dx \right)^2 = \left( \int_a^b g''(x) \tilde{g}''(x) dx \right)^2 \leq \left( \int_a^b g''(x)^2 dx \right) \left( \int_a^b \tilde{g}''(x)^2 dx \right)$$
+$$\Rightarrow \ \ \ \ \ \int_a^b g''(x)^2 dx \leq \int_a^b \tilde{g}''(x)^2 dx$$
+where the equality holds when there exists a nonzero constant $C$ such that $\tilde{g}''(x) = C g''(x)$ for $\forall x \in [a,b]$.
+
+Since $g$ is a natural cubic spline interpolant to the pairs $(x_n, z_n)$ ($n=1,...,N$), so when $\tilde{g}''(x) = C g''(x)$, we have: $\tilde{g}(x) = Cg(x) + A + Bx$ for $\forall x \in [a,b]$, where $A$ and $B$ are also constants. Because $\tilde{g}(x_n) = g(x_n) = z_n$ at all the knots $x_n$'s ($n=1,...,N$), hence at the knots we have: $(1-C)g(x_n) = A + Bx_n$. If $C\neq1, A\neq0, B\neq0$, then $g$ becomes a linear or constant function that can pass through all the $(x_n, z_n)$ points, which contradicts the fact that $g$ is a natural cubic spline. As a result, it must be that $C=1, \ A=B=0$. So we obtain that the equality holds only when $\tilde{g}''(x) = g''(x)$ and $\tilde{g}(x) = g(x)$ for $\forall x \in [a,b]$. 
+
+Therefore, the equality holds only when $h(x) = g(x) - \tilde{g}(x) = 0$ for $\forall x \in [a,b]$. 
+
+
+
+### (c)
+Suppose $\hat{f}$ is the minimizer of the penalized least squares problem, i.e.: 
+$$\min_{f \in F} \left[ \sum_{n=1}^N \left( Y_n - f(X_n) \right)^2 + \lambda \int_a^b f''(x)^2dx \right] = \sum_{n=1}^N \left( Y_n - \hat{f}(X_n) \right)^2 + \lambda \int_a^b \hat{f}''(x)^2dx$$
+
+Set $\hat{f}(X_n) = Z_n$ ($n=1,...,N$), since $\hat{f}$ is a function with continuous second derivatives on $[a,b]$, so $\hat{f}$ can be seen as a twice differentiable function on $[a,b]$ that interpolates the pairs $(X_n, Z_n)$ ($n=1,...,N$), which has all the properties that the funciton $\tilde{g}$ has in question (a) and (b).
+
+Next, we can generate a function $g$, which is a natural cubic spline interpolant to the pairs $(X_n, Z_n)$ ($n=1,...,N$), so at the knots $X_n$'s we have: $g(X_n) = \hat{f}(X_n) = Z_n$ ($n=1,...,N$), and that: $\int_a^b \hat{f}''(x)^2 dx \geq \int_a^b g''(x)^2 dx$, where the equality holds only when $\hat{f}(x) = g(x)$ for $\forall x \in [a,b]$.  
+
+Since $\lambda>0$, therefore:
+$$\min_{f \in F} \left[ \sum_{n=1}^N \left( Y_n - f(X_n) \right)^2 + \lambda \int_a^b f''(x)^2dx \right] = \sum_{n=1}^N \left( Y_n - \hat{f}(X_n) \right)^2 + \lambda \int_a^b \hat{f}''(x)^2dx \ \geq \ \sum_{n=1}^N \left( Y_n - g(X_n) \right)^2 + \lambda \int_a^b g''(x)^2dx$$
+
+Since $\hat{f}$ is the minimizer, thus the equality must holds here, otherwise function $g$ will further minimize the penalized least squares problem which contradicts the fact that $\hat{f}$ is the minimizer. And the equality holds only when $\hat{f}(x) = g(x)$ for $\forall x \in [a,b]$. 
+
+Therefore, the minimizer of the penalized least squares problem must be a natural cubic spline with knots at the points $X_n$ ($n = 1,...,N$).
+
+
+
+
+
+
+
+
+## Problem 2
+```{r, echo=FALSE, results="hide"}
+SAheart = read.csv("SAheart.data")   # row 262 missing
+SAheart = SAheart[ ,-c(1,5,7)]
+SAheart$chd = as.factor(SAheart$chd)
+str(SAheart)
+```
+
+
+
+### (a)
+The GLM model for binary response here is:
+\newline likelihood: \(P(chd_i=y_i|p_i) = p_i^{y_i} (1-p_i)^{1-y_i}, \ y_i=0,1\)
+\newline linear predictor: \(\eta_i = \beta_0 + \beta_1 sbp_i +\beta_2 tobacco_i +\beta_3 ldl_i +\beta_4 1_{famhist_i=Present} +\beta_5 obesity_i + \beta_6 alcohol_i + \beta_7 age_i\)
+\newline link function (logit): \(\eta_i = \log \frac{p_i}{1-p_i}\)
+\newline
+```{r}
+mod = glm(chd~., family=binomial, SAheart)
+coef(mod)
+
+# significance of each predictor
+drop1(mod, test="Chi")
+```
+
+Discussion:
+
+The predictors **tobacco**, **ldl** and **age** have significant positive effects on odds of the response **chd**, and the present of family history of heart desease will significantly increase the odds of the response **chd** while controlling other predictors.
+
+However, the predictors **sbp**, **obesity** and **alcohol** are not significant at 5% significance level, though **sbp** and **alcohol** has positive effect and **obesity** has negative effect on odds of the response **chd**. 
+
+Next, we test if there is a simpler model that fits the data well.
+
+From the chi-square test above, we see that the predictor **alcohol** has a p-value = 0.8917985, which is the most insignificant term in the model, so we drop this term first and then continue to drop the next one. We repeat this process until we find all the predictors are significant at 5% significance level.
+
+```{r}
+mod1 = glm(chd~sbp+tobacco+ldl+famhist+obesity+age, family=binomial, SAheart)
+drop1(mod1, test="Chi")
+```
+
+```{r}
+mod2 = glm(chd~sbp+tobacco+ldl+famhist+age, family=binomial, SAheart)
+drop1(mod2, test="Chi")
+```
+
+```{r}
+mod3 = glm(chd~tobacco+ldl+famhist+age, family=binomial, SAheart)
+drop1(mod3, test="Chi")
+
+# compare with full model
+1 - pchisq(mod3$deviance-mod$deviance, mod3$df.residual-mod$df.residual)
+```
+
+Answer:
+
+Now all the predictors are significant at 5% significance level, and the p-value of the difference-in-deviance chi-square test is 0.5183256 > 0.5, so we do not reject the smaller null model, i.e. the smaller model is preferred.
+
+Therefore, we get the final smaller model that fits the data better than the full model:
+$$\log \frac{p_i}{1-p_i} = \beta_0 +\beta_1 tobacco_i +\beta_2 ldl_i +\beta_3 1_{famhist_i=Present} + \beta_4 age_i$$
+
+
+
+
+### (b)
+```{r}
+# new GLM model with Natural Cubic Splines
+library(splines)
+SAheart$sbp_NS = ns(SAheart$sbp, df=4)
+SAheart$tobacco_NS = ns(SAheart$tobacco, df=4)
+SAheart$ldl_NS = ns(SAheart$ldl, df=4)
+SAheart$obesity_NS = ns(SAheart$obesity, df=4)
+SAheart$alcohol_NS = ns(SAheart$alcohol, df=4)
+SAheart$age_NS = ns(SAheart$age, df=4)
+
+mod_NS = glm(chd~famhist+sbp_NS+tobacco_NS+ldl_NS+obesity_NS+alcohol_NS+age_NS, 
+          family=binomial, SAheart)
+
+# significance of each predictor
+drop1(mod_NS, test="Chi")
+
+# compare this Natural Cubic Spline GLM full model with the simple linear GLM full model
+1 - pchisq(mod$deviance - mod_NS$deviance, mod$df.residual - mod_NS$df.residual)
+```
+
+Answer:
+
+There are 7 predictors in the original dataset, among which 6 ones are continuous predictors. Now we produce 4 B-spline bases for each of the continuous predictors, so now there will be $1 + 4 \times 6 = 25$ predictors in total (except the intercept) in the Natural Cubic Spline GLM model.
+
+The Natural Cubic Spline GLM model for binary response here is:
+\newline likelihood: \(P(chd_i=y_i|p_i) = p_i^{y_i} (1-p_i)^{1-y_i}, \ y_i=0,1\)
+\newline model: 
+$$\log \frac{p_i}{1-p_i} = \beta_0 + \beta_1 1_{famhist_i=Present} + \sum\limits_{j=1}^4 \left( \beta_{2j} sbp_{ij} +\beta_{3j} tobacco_{ij} +\beta_{4j} ldl_{ij}  +\beta_{5j} obesity_{ij} + \beta_{6j} alcohol_{ij} + \beta_{7j} age_{ij} \right)$$
+
+Comparing this Natural Cubic Spline GLM full model with the original simple linear GLM full model, we see that again the predictors **famhist**, **tobacco**, **ldl** and **age** are significant predictors at 5% significance level, while **sbp**, **obesity** and **alcohol** are not. 
+
+Besides, the p-value of the likelihood-based chi-square test for comparing these two models is 0.1106942 > 0.05, so we do not reject the null model (the smaller simple linear GLM full model). Therefore, the Natural Cubic Spline GLM full model is not significant comparing with the simple linear GLM full model at 5% significane level.
+
+Next, we still use the chi-square test to test if there is a simpler Natural Cubic Spline GLM model that fits the data well.
+
+From the chi-square test above, we see that the 4 B-spline predictors of **alcohol_NS** has a p-value = 0.9776262, which is the most insignificant term in the model, so we drop this term first and then continue to drop the next one. We repeat this process until we find all the predictors are significant at 5% significance level.
+
+```{r}
+mod_NS1 = glm(chd~famhist+sbp_NS+tobacco_NS+ldl_NS+obesity_NS+age_NS, 
+              family=binomial, SAheart)
+drop1(mod_NS1, test="Chi")
+```
+
+```{r}
+mod_NS2 = glm(chd~famhist+sbp_NS+tobacco_NS+ldl_NS+age_NS, 
+              family=binomial, SAheart)
+drop1(mod_NS2, test="Chi")
+```
+
+```{r}
+mod_NS3 = glm(chd~famhist+tobacco_NS+ldl_NS+age_NS, family=binomial, SAheart)
+drop1(mod_NS3, test="Chi")
+
+# compare with Natural Cubic Spline GLM full model
+1 - pchisq(mod_NS3$deviance-mod_NS$deviance, mod_NS3$df.residual-mod_NS$df.residual)
+```
+
+Answer:
+
+Now all the predictors are significant at 5% significance level, and the p-value of the difference-in-deviance chi-square test is 0.1453413 > 0.5, so we do not reject the smaller null model, i.e. the smaller model is preferred.
+
+Therefore, we get the final smaller Natural Cubic Spline model that fits the data better than the full model:
+$$\log \frac{p_i}{1-p_i} = \beta_0 + \beta_1 1_{famhist_i=Present} + \sum\limits_{j=1}^4 \left( \beta_{2j} tobacco_{ij} +\beta_{3j} ldl_{ij} +\beta_{5j} age_{ij} \right)$$
+
+Notice that this model have the 4 B-spline blocks of the same corresponding variables in the final smaller model of simple linear GLM model.
+
+Next, we plot the function $f(x_i) = \sum\limits_{j=1}^4 \beta_{j} x_{ij}$ for each of the 3 original continuous variables $x_i$ (i.e. **tobacco**, **ldl**, and **age**) in the final smaller model.
+
+```{r}
+# final Natural Cubic Spline GLM model
+beta_NS = mod_NS3$coefficients
+y_tobacco_NS = SAheart$tobacco_NS %*% beta_NS[3:6]
+y_ldl_NS = SAheart$ldl_NS %*% beta_NS[7:10]
+y_age_NS = SAheart$age_NS %*% beta_NS[11:14]
+
+# final simple linear GLM model
+beta = mod3$coefficients
+y_tobacco = SAheart$tobacco * beta[2]
+y_ldl = SAheart$ldl * beta[3]
+y_age = SAheart$age * beta[5]
+
+# plot function f(xi)'s while comparing with the simple linear GLM model
+par(mfrow=c(1,2))
+plot(y_tobacco_NS[order(SAheart$tobacco)] ~ SAheart$tobacco[order(SAheart$tobacco)], ylim=c(0,4.1),
+     type="l", main="Natural Cubic Spline GLM", xlab="tobacco", ylab="f(tobacco)")
+plot(y_tobacco ~ SAheart$tobacco, ylim=c(0,4.1),
+     type="l", main="Simple Linear GLM", xlab="tobacco", ylab="f(tobacco)")
+
+par(mfrow=c(1,2))
+plot(y_ldl_NS[order(SAheart$ldl)] ~ SAheart$ldl[order(SAheart$ldl)], ylim=c(0,3.3),
+     type="l", main="Natural Cubic Spline GLM", xlab="ldl", ylab="f(ldl)")
+plot(y_ldl ~ SAheart$ldl, ylim=c(0,3.3),
+     type="l", main="Simple Linear GLM", xlab="ldl", ylab="f(ldl)")
+
+par(mfrow=c(1,2))
+plot(y_age_NS[order(SAheart$age)] ~ SAheart$age[order(SAheart$age)], ylim=c(0,3.3),
+     type="l", main="Natural Cubic Spline GLM", xlab="age", ylab="f(age)")
+plot(y_age ~ SAheart$age, ylim=c(0,3.3),
+     type="l", main="Simple Linear GLM", xlab="age", ylab="f(age)")
+```
+
+
+Answer:
+
+Comparing the dependence on the variables between two models, we see that in the simple linear GLM model, all the dependence is linear positive, meaning that every unit change of one variable will make constant increase in the log-odds of the response while controlling for other variables. 
+
+However, the dependence on the variables in the Natural Cubic Spline GLM model is not linear (though having some linear parts), meaning that every unit change of one variable will make different changes in the log-odds of the response while controlling for other variables. And these changes are not always positive, having negative effect parts which depends on the range of the variables. 
+
+Therefore, the Natural Cubic Spline GLM model allows more flexible relationships between the log-odds of the response and the variables than the simple linear GLM model.
+
+
+
+
+
+```{r, echo=FALSE, results='hide'}
+head(model.matrix(mod_NS3))
+#str(SAheart)
+beta_NS
+beta
+
+c(min(y_tobacco_NS), max(y_tobacco_NS))
+c(min(y_ldl_NS), max(y_ldl_NS))
+c(min(y_age_NS), max(y_age_NS))
+```
+
+
+
+
+
+
+

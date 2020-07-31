@@ -1,0 +1,383 @@
+---
+title: "Homework 7"
+author: "Sarah Adilijiang"
+output:
+  pdf_document: default
+  html_notebook: default
+---
+
+## Problem 1
+### (a)
+```{r, echo=FALSE, message=FALSE}
+library(faraway)
+data(ratdrink)
+
+# plot the data
+library(ggplot2)
+ggplot(ratdrink, aes(x=weeks,y=wt,color=treat)) + geom_line(aes(group=subject)) +
+    labs(x="week", y="weight")
+
+ggplot(ratdrink, aes(x=weeks, y=wt, color=treat)) + geom_line(aes(group=subject)) +
+    facet_grid(~treat) + labs(x="week", y="weight")
+```
+
+Answer:
+
+In the first plot, we see that the both intercepts and slopes of how the weights of rats increases with age are different for each rat. And the intercepts within control group is more variable than that within thiouracil group, which are both more variable than the intercepts within thyroxine group. What' more, generally, the weights of thiouracil group are significantly lower than the other two groups, but the difference between the control group and thiouracil group is hard to tell.
+
+In the second plot, we can see clearly that the increasing rates (slopes) of weights over age are different for each treatment group. The slope of the control group is higher than that of thiouracil group. And there seems to have two different slope trends within the thyroxine group, of which one is slightly higher than the control group and the other is smaller than the control group but slightly higher than the thyroxine group.
+
+
+
+### (b)
+The mixed effects model is:
+\newline \(weight_{ij} = \mu + week_i + treat_j + week_i \times treat_j + \gamma^0_j + \gamma^1_j week_i +\epsilon_{ij}\), where $i$ indexes the week and $j$ indexes the individual. 
+\newline $week_i$ and $treat_j$ are fixed effects. Random effects $(\gamma^0_k \ \ \gamma^1_k)^T$ i.i.d. $\sim N(0,\sigma^2D)$, error term $\epsilon_{ij}$ i.i.d. $\sim N(0,\sigma^2I)$, and the random effects are independent with the error term.
+\newline
+```{r, message=FALSE}
+library(lme4)
+mmod = lmer(wt ~ weeks*treat + (weeks|subject), ratdrink)
+sumary(mmod)
+```
+
+Answer:
+
+The interpretations for the following estimates:
+
+i. The estimate of the fixed effect intercept term is 52.88, which means that the average weight of a rat in the control group at the first week is about 52.88.
+
+
+ii. The estimate of the fixed effect interaction term between **thiouracil** and **week** is -9.37, which means that the average weight of a rat in the thiouracil group increases about 26.48 - 9.37 = 17.11 a week, which is -9.37 lower than the increasing rate of the control group. Here 26.48 is the estimate of the fixed effect parameter of the predictor "week".
+
+iii. The estimate of the intercept random effect SD is 5.70, which represents the variation (SD) in overall weight between individual rats.
+
+
+
+### (c)
+```{r, message=FALSE}
+library(pbkrtest)
+
+# significance of interaction term
+mmod_ml = lmer(wt ~ weeks*treat + (weeks|subject), ratdrink, REML=FALSE)
+nmod_ml = lmer(wt ~ weeks+treat + (weeks|subject), ratdrink, REML=FALSE)
+KRmodcomp(nmod_ml, mmod_ml)
+
+# significance of treatment
+mmod_ml = lmer(wt ~ weeks+treat + (weeks|subject), ratdrink, REML=FALSE)
+nmod_ml = lmer(wt ~ weeks       + (weeks|subject), ratdrink, REML=FALSE)
+KRmodcomp(nmod_ml, mmod_ml)
+
+# significance of both terms
+mmod_ml = lmer(wt ~ weeks*treat + (weeks|subject), ratdrink, REML=FALSE)
+nmod_ml = lmer(wt ~ weeks       + (weeks|subject), ratdrink, REML=FALSE)
+KRmodcomp(nmod_ml, mmod_ml)
+```
+
+Answer:
+
+Here I used the Kenward-Roger adjusted F-test for testing the significance of the fixed effects terms. The results show that the interaction term between **treatment** and **week** is very significant, but the **treatment** term itself is not. When testing these two terms together, they are overall significant. And we should not remove the main effect term when keeping the interaction term in the model.
+
+Therefore, as a result, we keep both the **treatment** efffect term and its interaction term with week in the model, so we can think it as there is a significant treatment effect.
+
+
+
+### (d)
+```{r, echo=FALSE, message=FALSE}
+# residuals ~ fitted values
+plot(resid(mmod)~fitted(mmod), xlab="Fitted values", ylab="Residuals")
+abline(h=0)
+
+# QQ-plot of the residuals
+qqnorm(resid(mmod))
+qqline(resid(mmod))
+```
+
+Answer:
+
+The plot of residuals against the fitted values do not show significant anomalous patterns, thus indicating a roughly constant variance in residuals and independent errors.
+
+The QQ plot of the residuals shows that the residuals are basically normally distributed, though the the most left tail and right tail points are a little bit off the line.
+
+Thus, in general, this model is a good fit for the data.
+
+
+
+### (e)
+```{r}
+# confidence intervals of all parameters
+CI = confint(mmod, method="boot", oldNames=FALSE); CI
+
+# effect of thyroxine at each week
+thyroxine = matrix(NA,5,2)
+for (i in 0:4) {
+    thyroxine[i+1,] = CI["treatthyroxine",] + CI["weeks:treatthyroxine",] * i
+}
+colnames(thyroxine) = colnames(CI)
+thyroxine
+```
+
+Answer:
+
+Both the 95% confidence intervals of random intercept SD and random slope SD are well above zero, thus they are all significant at 5% significance level. However, the 95% confidence interval of the correlation between random intercept and slope covers zero, thus this term may not be significant. But this correlation term is difficult to interpret and little would be gained from removing it. So it is simpler just to keep it in.
+
+The 95% confidence interval of the fixed effect of **thyroxine** covers zero, and the 95% confidence interval of the interaction term between **thyroxine** and **weeks** also covers zero. As a result, when adding these two terms for each week, we can see that all the 95% confidence intervals at each week cover zeros. Therefore, the thyroxine group is not significantly different from the control group.
+
+
+
+
+
+
+
+
+
+## Problem 2
+### (a)
+```{r, message=FALSE}
+# simulate data
+set.seed(123)
+alpha = 1;  sigma = 1.2
+u = rnorm(101, 0, sigma)
+x = 2 + 0.01 * (0:100)
+y = NULL
+for (i in 1:101) {
+    y[i] = rpois(1, exp(alpha*x[i]+u[i]))
+}
+
+# GLM model
+glm_mod = glm(y ~ x-1, family=poisson)
+
+# GLMM model
+library(lme4)
+n = 0:100
+glmm_mod = glmer(y ~ x-1 + (1|n), family=poisson)
+```
+
+```{r}
+# compare estimates of the parameters
+summary(glm_mod)$coefficients
+summary(glmm_mod)$coefficients
+summary(glmm_mod)$varcor
+```
+
+```{r}
+# compare log-likelihoods and other fitting criterions
+c(logLik(glm_mod), logLik(glmm_mod))
+c(AIC(glm_mod), AIC(glmm_mod))
+c(BIC(glm_mod), BIC(glmm_mod))
+```
+
+```{r}
+# compare the absolute values of the residuals
+mean(abs(residuals(glm_mod)) >= abs(residuals(glmm_mod)))
+```
+
+```{r, echo=FALSE}
+# compare residual ~ fitted value plots
+plot(residuals(glm_mod)~fitted(glm_mod), xlab="Fitted values", ylab="Residuals", main="GLM model")
+plot(residuals(glmm_mod)~fitted(glmm_mod), xlab="Fitted values", ylab="Residuals", main="GLMM model")
+
+# compare residuals qqplots
+qqnorm(residuals(glm_mod), main="GLM model QQ-plot")
+qqline(residuals(glm_mod))
+qqnorm(residuals(glmm_mod), main="GLMM model QQ-plot")
+qqline(residuals(glmm_mod))
+```
+
+Answer:
+
+The GLM model for Poisson (count) response here is:
+\newline likelihood: \(P(Y_i=y_i) = \frac{e^{-\mu_i}\,\mu_i^{y_i}}{y!}, \ y_i=0,1,2,... \)
+\newline link function (log-link): \(\eta_i = \log\mu_i\)
+\newline linear predictor: \(\eta_i = \beta X_i\)
+
+The GLMM model for Poisson (count) response here is:
+\newline likelihood: \(P(Y_i=y_i) = \frac{e^{-\mu_{ij}}\,\mu_{ij}^{y_i}}{y!}, \ y_i=0,1,2,... \)
+\newline link function (log-link): \(\eta_{ij} = \log\mu_{ij}\)
+\newline linear predictor: \(\eta_{ij} = \beta X_i + \gamma_j\), where $X_i$ is the fixed effects, $\gamma_j$ is the random effects, and $\gamma_j$ i.i.d. $\sim N(0, \sigma^2_{b})$
+
+Discusssion:
+
+(1) Estimates of parameters:
+
+The estimate of the coefficient of $X_i$ in the **glmer** model is closer to its true value 1 than that in the **glm** model. But both the estimates in two models are significant. 
+
+The **glm** model estimates only one parameter, while the **glmer** model estimates two parameters including the random effect SD. The estimates of the randon effect SD is 1.1555, which has explained much of the variance of the response (true=1.2).
+
+(2) Model fitting:
+
+The log-likelihood of the **glmer** model is much larger than that of the **glm** model. And both the AIC and BIC values are much lower in the **glmer** model. Therefore, the **glmer** model fits the data much better than the **glm** model since the **glmer** model includes a random effect so that it explains the variation of the response better.
+
+(3) Residuals:
+
+Almost all the absolute residual values of the **glmer** model is smaller than those of the **glm** model. It makes sense since the random effect has explained much of the variation of the response.
+
+The residuals ~ fiited values plot for the **glm** model do not show significant anomalous patterns, thus indicating a roughly constant variance in residuals. However, for the **glmer** model, there is a significant increasing and correlated pattern in the residuals, thus the constant variance assumption does not hold.
+
+The QQ-plots for both models show that both of their residuals are not normally distributed.
+
+
+
+### (b)
+See the next page.
+
+
+
+
+
+
+
+
+## Problem 3
+### (a)
+```{r, echo=FALSE, message=FALSE}
+# summurize the data
+library(faraway)
+data(potuse)
+library(dplyr)
+
+potuse$sex = as.factor(ifelse(potuse$sex==1,"Male","Female"))
+potuse$sex = relevel(potuse$sex, ref="Male")
+
+potuse_76 = potuse %>% group_by(sex, year.76) %>% summarise(count.76 = sum(count))
+potuse_77 = potuse %>% group_by(sex, year.77) %>% summarise(count.77 = sum(count))
+potuse_78 = potuse %>% group_by(sex, year.78) %>% summarise(count.78 = sum(count))
+potuse_79 = potuse %>% group_by(sex, year.79) %>% summarise(count.79 = sum(count))
+potuse_80 = potuse %>% group_by(sex, year.80) %>% summarise(count.80 = sum(count))
+potuse2 = data.frame(sex=gl(2,3,30,labels=c("Male","Female")), year=rep(c("76","77","78","79","80"),each=6), usage=gl(3,1,30), sumcount=c(potuse_76$count.76, potuse_77$count.77, potuse_78$count.78, potuse_79$count.79, potuse_80$count.80))
+
+
+# plot the data
+library(ggplot2)
+ggplot(potuse2, aes(x=year, y=sumcount, color=usage)) + geom_point() + 
+    geom_line(aes(group=usage)) + facet_grid(~sex) + 
+    labs(x="Year", y="Total number of people", caption="usage: 1=never used, 2=used no more than once a month, 3=used more than once a month.")
+```
+
+
+
+### (b)
+```{r}
+# condense the levels of the response and change data type
+potuse3 = sapply(potuse[,2:6], function(x) ifelse(x==1,0,1))
+potuse3 = data.frame(potuse3, sex=potuse$sex, count=potuse$count)
+
+n = sum(potuse$count)
+potuse_binary = data.frame(matrix(NA,5*n,4))
+colnames(potuse_binary) = c("person", "year", "sex", "usage")
+potuse_binary$person = as.factor(rep(1:n, each=5))
+potuse_binary$year = rep(76:80, times=n)
+potuse_binary$sex = rep(c("Male","Female"), c(5*sum(potuse3$count[potuse3$sex=="Male"]), 
+                                              5*sum(potuse3$count[potuse3$sex=="Female"])))
+potuse_binary$sex = relevel(as.factor(potuse_binary$sex), ref="Male")
+
+u = NULL
+for (i in 1:nrow(potuse3)) {
+    u = c(u, rep(potuse3[i,1:5], times=potuse3$count[i]))
+}
+potuse_binary$usage = unlist(u)
+```
+
+
+The GLMM model for Binary response here is:
+\newline likelihood: \(P(usage_i=y_i|p_i) = p_i^{y_i} (1-p_i)^{1-y_i}, \ y_i=0,1\), where \(p_i\) is the probability that a person did use marijuana.
+\newline link function (logit): \(\eta_{ij} = \log \frac{p_i}{1-p_i}\)
+\newline linear predictor: \(\eta_{ij} = \mu + cyear_i + sex_j + cyear_i \times sex_j + \gamma^0_j + \gamma^1_j cyear_i\), where $i$ indexes the year and $j$ indexes the individual. $cyear_i$ and $sex_j$ are fixed effects. Random effects $(\gamma^0_k \ \ \gamma^1_k)^T$ i.i.d. $\sim N(0,\sigma^2D)$, error term $\epsilon_{ij}$ i.i.d. $\sim N(0,\sigma^2I)$, and the random effects are independent with the error term.
+\newline
+```{r, message=FALSE}
+# GLMM model
+library(lme4)
+potuse_binary$cyear = potuse_binary$year - 78
+glmm_mod = glmer(usage ~ sex*cyear + (cyear|person), family=binomial, potuse_binary)
+summary(glmm_mod)
+```
+
+Answer:
+
+Here I centered the **year** at its median value 1978 so that the intercept will represent the predicted **usage** in 1978 thus aiding the interpretations. Also, this helps to reduce the magnitude of the values of **year**, since large numbers are not easy for the underlying fitting algorithm in **glmer** function.
+
+In the model summary, the fixed effect **sex** is significant at 5% significance level, but the interaction term between **sex** and **cyear** is not. Therefore, the difference in general Marijuana usage between male and female is significant, but the difference in increasing rate of usage over year is not significant between male and female.
+
+
+
+### (c)
+```{r}
+# test fixed effect: interaction term
+ mod = glmer(usage ~ sex*cyear + (cyear|person), family=binomial, potuse_binary)
+nmod = glmer(usage ~ sex+cyear + (cyear|person), family=binomial, potuse_binary)
+LRT = as.numeric(-2*(logLik(nmod)-logLik(mod)))
+1 - pchisq(LRT,1)  # chi-square p-value
+
+# test fixed effect: sex
+ mod = glmer(usage ~ sex+cyear + (cyear|person), family=binomial, potuse_binary)
+nmod = glmer(usage ~     cyear + (cyear|person), family=binomial, potuse_binary)
+LRT = as.numeric(-2*(logLik(nmod)-logLik(mod)))
+1 - pchisq(LRT,1)  # chi-square p-value
+```
+
+Answer:
+
+In the LRT test for dropping the interaction betweeen **sex** and **cyear**, the p-value > 0.05, so we do not reject the null model at 5% significance level. Thus the interaction term is not significant, we can drop it from the larger model.
+
+In the LRT test for dropping **sex**, the p-value < 0.05, so we reject the null model at 5% significance level. Thus we **sex** is a significant fixed effect so we shoule keep it in the model. Therefore, our final model is: 
+$$\log \frac{p_i}{1-p_i} = \mu + cyear_i + sex_j + \gamma^0_j + \gamma^1_j cyear_i$$
+where $i$ indexes the year and $j$ indexes the individual. $cyear_i$ and $sex_j$ are fixed effects. Random effects $(\gamma^0_k \ \ \gamma^1_k)^T$ i.i.d. $\sim N(0,\sigma^2D)$, error term $\epsilon_{ij}$ i.i.d. $\sim N(0,\sigma^2I)$, and the random effects are independent with the error term.
+
+
+
+### (d)
+Here we use the final model from (c) to compare two models. But the computation of the algorithm for this final model with **cyear** as a factor is too time consuming and the algorithm do not converge. Therefore, we simplify this final model by removing the random slope term. So now the model is:
+$$\log \frac{p_i}{1-p_i} = \mu + cyear_i + sex_j + \gamma_j$$
+where $i$ indexes the year and $j$ indexes the individual. $cyear_i$ and $sex_j$ are fixed effects. Random effects $\gamma_j$ i.i.d. $\sim N(0,\sigma^2D)$, error term $\epsilon_{ij}$ i.i.d. $\sim N(0,\sigma^2I)$, and the random effect is independent with the error term.
+
+```{r}
+# final model with "cyear" as a numerical linear term
+glmm_num = glmer(usage ~ sex+cyear + (1|person), family=binomial, potuse_binary)
+summary(glmm_num)
+
+# final model with "cyear" as a factor
+potuse_binary$year_f = as.factor(potuse_binary$year)
+glmm_fac = glmer(usage ~ sex+year_f + (1|person), family=binomial, potuse_binary)
+summary(glmm_fac)
+
+# standard likelihood-based method to construct a chi-squared test
+anova(glmm_num, glmm_fac)
+```
+
+Answer:
+
+(1) Model Comparison: 
+
+From the summary of two models, we can see that the log-likelihood of the models are: -502.7 for linear **year** effect and -496.5 for factor **year** effect. So the factor model is slightly better due to a higher log-likelihood value. The same result is shown in the chi-squared test based on the standard likelihood, which shows a low p-value preferring the factor model.
+
+Also, in the summary, the AIC values of the models are: 1013.3 for linear **year** effect and 1007.0 for factor **year** effect. So again the factor model is slightly preferred in terms of having a lower AIC value. However, the BIC values of the models are: 1033.6 for linear **year** effect and 1042.5 for factor **year** effect. Thus the linear model is slightly preferred in terms of having a lower BIC value. BIC does not agree with AIC because BIC method penalizes model complexity more heavily.
+
+To sum up, the likelihood based chi-squared test and AIC method both prefer the factor model, while the BIC method prefers the linear model. Therefore, it is not very clear which one fits the data better and should be clearly preferred from this point of view.
+
+On the other hand, we can think the linear **year** model as a submodel of the factor **year** model. In the factor **year** model, each year has its own parameter, so it allows different increasements between each two adjacent years. But in the linear **year** model, all the years has only one parameter, so it assumes an identical increasement between all the two adjacent years. From the plot in question (a), we can see that the increasements between each two adjacent years are actually slightly different for box male and female, but the difference is not that significant and can be modeled as a linear relationship.
+
+Furthermore, thinking of the model complexity, when making **year** as a factor, it increases the degrees of the freedom of the model, especially when adding the random slope term which results in the non-convergence of the model. So the linear model is better in fitting the model and would not make a too complex model.
+
+Therefore, as a result, I would say the model with **year** as a linear term would be slightly preferred here.
+
+
+
+(2) Factor Model Interpretation: 
+
+The estimate of the fixed effect intercept term is -4.3878, which means that the Marijuana usage odds of a male in year 1976 is exp(-4.3878)=0.0124.
+
+The estimate of the fixed effect **sexFemale** is -1.1196, which means that the Marijuana usage odds of a female is exp(-1.1196)=0.3264 times as the odds of a male in the same year.
+
+The estimate of the fixed effect **year_f77** is 1.7079, which means that the Marijuana usage odds of a person in year 1977 is exp(1.7079)=5.5174 times as the odds of a person in year 1976 when controlling for sex. The interpretation is similar for other levels of the year.
+
+The estimate of the intercept random effect SD is 2.807, which represents the variation (SD) in overall Marijuana usage odds between individuals is exp(2.807)=16.5602.
+
+
+
+
+
+
+
+
+
+
+

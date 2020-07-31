@@ -1,0 +1,369 @@
+---
+title: "Homework 6"
+author: "Sarah Adilijiang"
+output:
+  pdf_document: default
+  html_notebook: default
+---
+
+## Problem 1
+### (a)
+```{r}
+library(faraway)
+data(coagulation)
+
+# plot the data
+library(ggplot2)
+ggplot(coagulation, aes(x=diet, y=coag)) + 
+    geom_point(position=position_jitter(width=0.1, height=0.0), shape=1) + 
+    labs(x="diet", y="coagulation time", caption="Note: Some jittering has been used to make coincident points apparent.") + 
+    theme_grey()
+```
+
+Comment:
+
+From the data plot, we can see that there is a significant difference in the blood coagulation time between different diets, so diet seems to be a significant effect for the response coagulation time.
+
+
+
+### (b)
+The fixed effects model is:
+\newline \(coag_{ij} = \mu + diet_i + \epsilon_{ij}\), where $\mu,\, diet_i$ are fixed effects, and error term $\epsilon_{ij}$ i.i.d. $\sim N(0,\sigma^2)$.
+\newline
+```{r}
+# fixed effect model
+fmod = lm(coag~diet, coagulation)
+
+# prediction & 95% prediction CI
+predict(fmod, newdata=data.frame(diet="D"), interval="prediction", level=0.95)
+
+# using parametric bootstrap for 95% prediction CI
+resid.sd = summary(fmod)$sigma
+
+set.seed(123)
+pred = numeric(1000)
+for (i in 1:1000) {
+    y = unlist(simulate(fmod))
+    bmod = lm(y~diet, coagulation)
+    pred[i] = predict(bmod, newdata=data.frame(diet="D")) + rnorm(n=1, sd=resid.sd)
+}
+quantile(pred, c(0.025, 0.975))
+```
+
+Answer:
+
+The predicted value of the blood coagulation time of a new animal assigned to diet D is 61 seconds, and its 95% confidence interval is (55.76427, 66.23573) seconds.
+
+While using parametric bootstrap, the 95% prediction CI is (56.32447, 65.92409) seconds.
+
+
+
+### (c)
+The random effects model is:
+\newline \(coag_{ij} = \mu + diet_i + \epsilon_{ij}\), where $\mu$ is fixed effects, and $diet_i$ is random effects. 
+\newline Random effects $diet_i$ i.i.d. $\sim N(0,\sigma_{b}^2)$, error term $\epsilon_{ij}$ i.i.d. $\sim N(0,\sigma^2)$, and $diet_i$ and $\epsilon_{ij}$ are independent.
+\newline
+```{r}
+# random effect model
+library(lme4)
+rmod = lmer(coag~1+(1|diet), coagulation)
+
+# two ways of prediction
+fixef(rmod) + ranef(rmod)$diet["D",]
+predict(rmod, newdata=data.frame(diet="D"))
+
+# using parametric bootstrap for 95% prediction CI
+group.sd = as.data.frame(VarCorr(rmod))$sdcor[1]
+resid.sd = as.data.frame(VarCorr(rmod))$sdcor[2]
+
+set.seed(123)
+pred = numeric(1000)
+for (i in 1:1000) {
+    y = unlist(simulate(rmod, use.u=TRUE))
+    bmod = refit(rmod, y)
+    pred[i] = predict(bmod, newdata=data.frame(diet="D")) + rnorm(n=1, sd=resid.sd)
+}
+quantile(pred, c(0.025, 0.975))
+```
+
+Answer:
+
+The predicted value of the blood coagulation time of a new animal assigned to diet D is 61.17017 seconds, and its 95% confidence interval is (56.69907, 66.22767) seconds.
+
+
+
+### (d)
+Here we are still using the random effect model.
+```{r}
+# two ways of prediction
+fixef(rmod)
+predict(rmod, re.form=~0)[1]
+
+# using parametric bootstrap for 95% prediction CI
+set.seed(123)
+pred = numeric(1000)
+for (i in 1:1000) {
+    y = unlist(simulate(rmod))
+    bmod = refit(rmod, y)
+    pred[i] = predict(bmod, re.form=~0)[1] + 
+        rnorm(n=1, sd=group.sd) + rnorm(n=1, sd=resid.sd)
+}
+quantile(pred, c(0.025, 0.975))
+```
+
+Answer:
+
+The predicted value of the blood coagulation time of a new animal given a new diet is 64.01266 seconds, and its 95% confidence interval is (54.78558, 72.62177) seconds.
+
+
+
+### (e)
+Here we are still using the random effect model.
+```{r}
+# two ways of prediction
+fixef(rmod)
+predict(rmod, re.form=~0)[1]
+
+# using parametric bootstrap for prediction & 95% prediction CI
+set.seed(123)
+pred = numeric(1000)
+for (i in 1:1000) {
+    y = unlist(simulate(rmod))
+    bmod = refit(rmod, y)
+    pred[i] = predict(bmod, re.form=~0)[1] + 
+        rnorm(n=1, sd=group.sd) + rnorm(n=1, sd=resid.sd)
+}
+quantile(pred, c(0.025, 0.975))
+```
+
+Answer:
+
+The predicted value of the blood coagulation time of the first animal in the dataset when given a new diet is 64.01266 seconds, and its 95% confidence interval is (54.78558, 72.62177) seconds. 
+
+These values are exactly the same as in question (d), since which animal is given a new diet does not matter in this case, the only random effect in the model is the diet. Therefore, question (d) and (e) get the same answer.
+
+
+
+
+
+
+
+
+
+
+## Problem 2
+### (a)
+```{r}
+library(faraway)
+data(lawn)
+
+# plot the data
+library(ggplot2)
+ggplot(lawn, aes(x=manufact, y=time, color=machine, shape=speed)) + 
+    geom_point(position=position_jitter(width=0.1, height=0.0)) + 
+    labs(x="manufacturer", y="cut-off time", caption="Note: Some jittering has been used to make coincident points apparent.") + theme_grey()
+```
+
+Comment:
+
+From the data plot, we can see that there is a clearly significant difference in the cut-off times of lawnmowers between different speeds: the high speed ones have much larger cut-off times. So speed seems to be a significant effect for the response cut-off time.
+
+For manufacturers, the cut-off times of manufacturer A is slightly larger than that of manufacturer B, but it's hard to say whether the difference is significant.
+
+For machines, when using low speed, there is a significant difference in the cut-off times of lawnmowers between different machines, however, when using high speed, the differences between machines become smaller. And the difference in cut-off times between machines is slightly larger for those produced by manufacturer B than those by manufacturer A. To sum up, overall, there is a significant difference in the cut-off times between machines.
+
+
+
+### (b)
+The fixed effects model is:
+\newline \(time_{ijkl} = \mu + speed_i + manufact_j + machine_k + \epsilon_{ijkl}\), where $\mu,\, speed_i,\, manufact_j,\, machine_k$ are all fixed effects, and error term $\epsilon_{ijkl}$ i.i.d. $\sim N(0,\sigma^2)$.
+\newline
+```{r}
+# fixed effect model
+fmod = lm(time~speed+manufact+machine, lawn)
+summary(fmod)
+
+# check the data design matrix of the model
+X = model.matrix(fmod)
+# machinem6 = manufactB - machinem4 - machinem5
+rbind(X[,3]-X[,6]-X[,7],  X[,8])
+```
+
+Answer:
+
+The model summary shows that the effect of $machinem6$ cannot be estimated. We can see that in the design matrix, the following indicator vectors have a relationship: $machinem6 = manufactB - machinem4 - machinem5$, which makes $machinem6$ a redundant indicator vector that occurs in the last. Thus there is an NA appearing for the $machinem6$ factor level due to the rank deficiency of the design matrix.
+
+
+
+### (c)
+The mixed effects model is:
+\newline \(time_{ijkl} = \mu + speed_i + manufact_j + machine_k+ \epsilon_{ijkl}\), where $\mu,\, speed_i,\, manufact_j$ are fixed effects, and $machine_i$ is random effects. 
+\newline Random effects $machine_k$ i.i.d. $\sim N(0,\sigma_{b}^2)$, error term $\epsilon_{ijkl}$ i.i.d. $\sim N(0,\sigma^2)$, and $machine_k$ and $\epsilon_{ijkl}$ are independent.
+\newline
+```{r}
+# mixed effect model
+library(lme4)
+rmod = lmer(time ~ speed * manufact + (1|machine), lawn)
+
+# SD of the same machine with same speed
+resid.sd = as.data.frame(VarCorr(rmod))$sdcor[2]
+resid.sd
+
+# SD of different machines with same speed
+group.sd = as.data.frame(VarCorr(rmod))$sdcor[1]
+sqrt(resid.sd^2 + group.sd^2)
+```
+
+Answer:
+
+If the same machine were tested at the same speed, the variance of response will only come from the variance of residuals, thus $SD(Y) = \sqrt{Var(Y)} = \sqrt{\sigma^2_{residuals}} = 11.50226$.
+
+If different machines were sampled from the same manufacturer and tested at the same speed once only, the variance of response will come from both the variance of randaom effects "machine" and the variance of the residuals, thus $SD(Y) = \sqrt{Var(Y)} = \sqrt{\sigma^2_{residuals} + \sigma^2_{machine}} = 16.65919$.
+
+
+
+### (d)
+```{r}
+# test fixed effect: interaction term
+nmod = lmer(time ~ speed + manufact + (1|machine), lawn, REML=FALSE)
+ mod = lmer(time ~ speed * manufact + (1|machine), lawn, REML=FALSE)
+( LRT = as.numeric(-2*(logLik(nmod)-logLik(mod))) )
+
+# chi-square
+1 - pchisq(LRT,1)
+```
+
+Answer:
+
+The LRT p-value > 0.05, so we do not reject the null model at the 5% significance level. Therefore, the null model without the interaction term is preferred.
+
+So we drop the interaction term and then continue to test the significance of the two main fixed effects terms.
+
+```{r}
+# test fixed effect: "manufact"
+nmod = lmer(time~ speed + (1|machine), lawn, REML=FALSE)
+ mod = lmer(time~ speed+manufact + (1|machine), lawn, REML=FALSE)
+( LRT = as.numeric(-2*(logLik(nmod)-logLik(mod))) )
+
+# chi-square
+1 - pchisq(LRT,1)
+```
+
+```{r}
+# test fixed effect: "speed"
+nmod = lmer(time~ manufact + (1|machine), lawn, REML=FALSE)
+ mod = lmer(time~ speed+manufact + (1|machine), lawn, REML=FALSE)
+( LRT = as.numeric(-2*(logLik(nmod)-logLik(mod))) )
+
+# chi-square
+1 - pchisq(LRT,1)
+```
+
+Answer:
+
+In the LRT test for dropping "manufact", the p-value > 0.05, so we do not reject the null model at the 5% significance level. 
+
+In the LRT test for dropping "speed", the p-value < 0.05, so we reject the null model at the 5% significance level. 
+
+Therefore, the model without the main fixed effects term "manufact" is preferred at this step. So we drop the "manufact" term and then continue to test the significance of the single fixed effects term "speed".
+
+```{r}
+# test the only fixed effect: "speed"
+nmod = lmer(time~ 1 + (1|machine), lawn, REML=FALSE)
+ mod = lmer(time~ speed + (1|machine), lawn, REML=FALSE)
+( LRT = as.numeric(-2*(logLik(nmod)-logLik(mod))) )
+
+# chi-square
+1 - pchisq(LRT,1)
+```
+
+Answer:
+
+The LRT p-value < 0.05, so we reject the null model at the 5% significance level. Therefore, "speed" is a significant fixed effect. 
+
+So we get the final model with only "speed" left in the model:
+$$time_{ijk} = \mu + speed_i + machine_j+ \epsilon_{ijk}$$
+where $\mu,\, speed_i$ are fixed effects, and $machine_j$ is random effects. 
+\newline Random effects $machine_j$ i.i.d. $\sim N(0,\sigma_{b}^2)$, error term $\epsilon_{ijk}$ i.i.d. $\sim N(0,\sigma^2)$, and $machine_j$ and $\epsilon_{ijk}$ are independent.
+
+
+
+### (e)
+Here we check whether there is any variation between machines based on the final model in question (d).
+```{r}
+# test the random effect: "machine"
+nmod = lm(time ~ speed, lawn)
+rmod = lmer(time ~ speed + (1|machine), lawn)
+( LRT = as.numeric(-2*(logLik(nmod, REML=TRUE)-logLik(rmod))) )
+
+set.seed(123)
+LRT_stat = numeric(1000)
+for (i in 1:1000) {
+    y = unlist(simulate(nmod))
+    nmod_b = lm(time~ speed*manufact, lawn)
+    rmod_b = refit(rmod, y)
+    LRT_stat[i] = as.numeric(-2*(logLik(nmod_b, REML=TRUE)-logLik(rmod_b)))
+}
+mean(LRT_stat > LRT)
+```
+
+Answer:
+
+The LRT p-value < 0.05, so we reject the null hypothesis that the variance between machines is zero at the 5% significance level. Therefore, there is significant variation between machines.
+
+
+
+### (f)
+The mixed effects model is:
+\newline \(time_{ijkl} = \mu + speed_i + manufact_j + machine_{jk} + \epsilon_{ijkl}\), where $\mu,\, speed_i$ are fixed effects, and $manufact_j,\, machine_{jk}$ are random effects, where $machine_{jk}$ is nested within $manufact_j$.
+\newline  Random effects $manufact_j$ i.i.d. $\sim N(0,\sigma_{b1}^2)$, $machine_{jk}$ i.i.d. $\sim N(0,\sigma_{b2}^2)$, and error term $\epsilon_{ijkl}$ i.i.d. $\sim N(0,\sigma^2)$, and $manufact_j$, $machine_{jk}$ and $\epsilon_{ijkl}$ are independent.
+\newline
+```{r}
+# mixed effect model with nested random effects
+rmod = lmer(time~ speed + (1|manufact) + (1|manufact:machine), lawn)
+VarCorr(rmod)
+```
+
+Answer:
+
+The variability between machines and the variability between manufacturers are similar both in their magnitudes and exact values.
+
+
+
+### (g)
+```{r}
+# CI of all effects
+set.seed(123)
+machine = manufact = residual = intercept = speedL = numeric(1000)
+for (i in 1:1000) {
+    y = unlist(simulate(rmod))
+    bmod = refit(rmod, y)
+    machine[i] = as.data.frame(VarCorr(bmod))$sdcor[1]
+    manufact[i] = as.data.frame(VarCorr(bmod))$sdcor[2]
+    residual[i] = as.data.frame(VarCorr(bmod))$sdcor[3]
+    intercept[i] = summary(bmod)$coefficients[1,1]
+    speedL[i] = summary(bmod)$coefficients[2,1]
+}
+quantile(machine, c(0.025, 0.975))
+quantile(manufact, c(0.025, 0.975))
+quantile(residual, c(0.025, 0.975))
+quantile(intercept, c(0.025, 0.975))
+quantile(speedL, c(0.025, 0.975))
+
+# check result
+#confint(rmod, method="boot")
+```
+
+Answer:
+
+Though the 95% confidence interval of the random effects "manufact" is wider than that of the nested random effects "machine", they both cover zero values. 
+
+Therefore, we might drop any of these two random effect terms but it is not possible to be sure which is best to go. So it is safest to conclude that there is some variation in the cut-off times of lawnmowers coming from both the two sources: machines and manufacturers. 
+
+So the variability of response cannot be ascribed solely to manufacturers or to machines.
+
+
+
+
+
+

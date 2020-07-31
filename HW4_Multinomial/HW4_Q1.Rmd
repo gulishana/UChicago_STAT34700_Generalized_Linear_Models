@@ -1,0 +1,214 @@
+---
+title: "HW 4 Question 1"
+#date: "2/1/2019"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(dplyr)
+library(ggplot2)
+require(gridExtra)
+library(MASS)
+library(faraway)
+```
+
+#(a)
+```{r echo = FALSE}
+data(uncviet)
+#uncviet <- read.csv("uncviet.csv", sep = ",")
+uncviet$year <- factor(uncviet$year, levels = c("Fresh", "Soph", "Junior", "Senior", "Grad"))
+ygp_men <- group_by(uncviet[1:20,], year, policy) %>% summarise(count=y) %>% group_by(year) %>%
+  mutate(etotal = sum(count), proportion = count/etotal)
+plot1 <- ggplot(ygp_men, aes(x=year, y=proportion, group = policy, color= policy))+geom_line()+ggtitle("Men")+
+  ylab("Observed Proportion")
+
+```
+
+
+```{r echo = FALSE}
+ygp_women <- group_by(uncviet[21:40,], year, policy) %>% summarise(count=y) %>% group_by(year) %>%
+  mutate(etotal = sum(count), proportion = count/etotal)
+plot2 <- ggplot(ygp_women, aes(x=year, y=proportion, group = policy, color= policy))+geom_line()+ggtitle("Women")+
+  ylab("Observed Proportion")
+
+grid.arrange(plot1, plot2, ncol = 2)
+```
+
+
+#(b)
+We first arrange the policy choices into an ordinal outcome A < B < C < D. We then fit the proportional odds model $$\log\frac{\gamma_j(x_i)}{1-\gamma_j(x_i)} = \theta_j - \beta_1\textbf{1}_{\{\text{Male}\}}-\beta_2^T\text{year}-\beta_3^T\text{sex:year},$$
+where $\gamma_j(x_i) = P(Y_i \leq j | x_i).$ Results of the fit are shown in the table below.
+```{r echo = FALSE}
+pomod <- polr(policy~sex*year, weight = y, data = uncviet, Hess = TRUE)
+knitr::kable(summary(pomod)$coefficients, digits = 2)
+```
+
+Our plots in part (a) reveal that year has a different effect on policy choice based on whether a respondent is male or female. Therefore, it is sensible to include an interaction term in the model.
+
+
+#(c)
+Next we fit the main effects proportional odds model $$\log\frac{\gamma_j(x_i)}{1-\gamma_j(x_i)} = \theta_j - \beta_1\textbf{1}_{\{\text{Male}\}}-\beta_2^T\text{year},$$
+where $\gamma_j(x_i) = P(Y_i \leq j | x_i).$ Results of the fit are shown in the table below.
+```{r echo = FALSE}
+pomod_main <- polr(policy~sex+year, weights = y, data = uncviet, Hess = TRUE)
+knitr::kable(summary(pomod_main)$coefficients, digits = 2)
+```
+
+We can compare the two models using a likelihood ratio test. The difference in deviance between the main effects model and the interactions model is 7757-7736 = 21.
+```{r include = FALSE}
+deviance(pomod_main)-deviance(pomod)
+```
+
+Under the null hypothesis that the main effects model is sufficient, we expect the difference in deviance to be distributed according to a $\chi^2_{4}$ distribution (note that there are 4 different sex:year interaction terms). This yields a p-value of $3 \times 10^{-4}$.
+
+```{r include = FALSE}
+pchisq(20.986, 4, lower = FALSE)
+```
+
+We therefore reject the null, and conclude that the model with interactions is prefered.
+
+#(d) and (e)
+```{r echo = FALSE}
+props <- fitted(pomod, type = "probs")
+props_men <- props[seq(1,20,4),]
+props_women <- props[seq(21,40,4),]
+uncviet$fitted_prop <- c(props_men[1,], props_men[2,], props_men[3,],
+                         props_men[4,], props_men[5,], props_women[1,],
+                         props_women[2,], props_women[3,], props_women[4,],
+                         props_women[5,])
+
+ygp_men <- group_by(uncviet[1:20,], year, policy) %>% summarise(count=fitted_prop) %>% group_by(year) %>%
+  mutate(etotal = 1, proportion = count/etotal)
+plot1 <- ggplot(ygp_men, aes(x=year, y=proportion, group = policy, color= policy))+geom_line()+ggtitle("Men")+
+  ylab("Fitted Proportion")
+ygp_women <- group_by(uncviet[21:40,], year, policy) %>% summarise(count=fitted_prop) %>% group_by(year) %>%
+  mutate(etotal = 1, proportion = count/etotal)
+plot2 <- ggplot(ygp_women, aes(x=year, y=proportion, group = policy, color= policy))+geom_line()+ggtitle("Women")+
+  ylab("Fitted Proportion")
+grid.arrange(plot1,plot2,ncol=2)
+```
+
+Comparing to the observed proportions plotted in part (a), we can see that the fitted proportions for men recapitulate the observed proportions well. The key trends are also preserved for women, but overall the fit doesn't look as good (see also the raw residual plot in (f)). Given that there are many more male respondents than female respondents (2565 vs 582), a better fit to the male data is expected.
+
+#(f)
+```{r echo = FALSE}
+props_obs_men <- matrix(0, 5, 4)
+props_obs_women <- matrix(0, 5, 4)
+for (i in 1:5) {
+  for (j in 1:4) {
+    props_obs_men[i,j] = uncviet$y[(4*(i-1)+j)]/sum(uncviet$y[(4*(i-1)+1):(4*(i-1)+4)])
+    props_obs_women[i,j] = uncviet$y[(4*(i-1)+j+20)]/sum(uncviet$y[(4*(i-1)+21):(4*(i-1)+24)])
+  }
+}
+raw_resid_men <- props_men-props_obs_men
+raw_resid_women <- props_women-props_obs_women
+
+uncviet$raw_resid <- c(raw_resid_men[1,], raw_resid_men[2,], raw_resid_men[3,],
+                         raw_resid_men[4,], raw_resid_men[5,], raw_resid_women[1,],
+                         raw_resid_women[2,], raw_resid_women[3,], raw_resid_women[4,],
+                         raw_resid_women[5,])
+
+
+ygp_men <- group_by(uncviet[1:20,], year, policy) %>% summarise(count=raw_resid) %>% group_by(year) %>%
+  mutate(etotal = 1, proportion = count/etotal)
+plot1 <- ggplot(ygp_men, aes(x=year, y=proportion, group = policy, color= policy))+geom_line()+ggtitle("Men")+
+  ylab("Raw Residual")
+
+ygp_women <- group_by(uncviet[21:40,], year, policy) %>% summarise(count=raw_resid) %>% group_by(year) %>%
+  mutate(etotal = 1, proportion = count/etotal)
+plot2 <- ggplot(ygp_women, aes(x=year, y=proportion, group = policy, color= policy))+geom_line()+ggtitle("Women")+
+  ylab("Raw Residual")
+grid.arrange(plot1,plot2,ncol=2)
+
+```
+
+We can see that men tend to have much smaller residuals than women, and that the fitted values for women tend to be entirely larger than or smaller than the observed proportions for each policy (e.g. the fitted proportions for policy D are larger than the observed proportions across all years).
+
+We might improve the residuals by normalizing in some way. If the data do indeed come from this model, we don't expect the variances of the observed proportions to all be the same. Therefore, making claims based on the relative sizes of the raw residuals could be error prone.
+
+#(g)
+For convenience, the table from part (b) is repeated below.
+```{r echo = FALSE}
+knitr::kable(summary(pomod)$coefficients, digits = 2)
+
+```
+
+
+First, let's look at the year terms. Note that because we included year*sex interactions in the model, and women are the reference sex, these coefficients correspond to the effect of year on women. These coefficients are either not significant or (at best) very marginally significant, which means that womens' opinions don't vary much across the years. This is not too surprising given our initial plots, which showed that the trends for women were flatter than those for men.
+
+
+#(h)
+Now we fit the multinomial main effects model $$\log\frac{p_{ij}}{p_{i1}} =  \beta_{0j}+\beta_{1j}\textbf{1}_{\{\text{Male}\}}+\beta_{2j}^T\text{year},$$ for $j = B,C,D$ (i.e. a separate $\beta$ is fit for each outcome), and where $p_{ij} = P(Y_i=j|x_i)$. Code is shown below only to demonstrate proper use of the gof function-normally this would not be included in a write-up.
+```{r echo = FALSE}
+gof<-function(mod,ldata)
+{
+  # Number of predictor combinations
+  ll=dim(ldata)[1]
+  # Number of outcomes
+  cc=dim(ldata)[2]
+
+  # Total for each combination of levels
+  RR=rowSums(ldata)
+  # Total in each outcome
+  CC=colSums(ldata)
+  # proportions in column sums - marginal proportions of outcomes
+  CC=t(matrix(CC/sum(CC)))
+  CCC=rep(1,ll)%*%CC
+
+  # Matrix of row sums
+  RRR=RR%*%t(rep(1,cc))
+
+  # Fitted probs
+  PFIT=mod$fitted.values
+  FIT=PFIT[!duplicated(PFIT),]
+  # Expected counts.
+  EXP=FIT*RRR
+  # Chisq stat for mod
+  CHISQ=sum((ldata-EXP)^2/EXP)
+  # Degrees of freedom - Number of predictors * (Number of outcomes - 1) - Number of estimated parameters.
+  # Number of estimated parametes = Number of columns in model matrix * (Number of outcomes - 1)
+  dof=(ll*(cc-1)-length(coefficients(mod)))
+
+  # Deviance
+  DEV=2*sum(ldata*log(ldata/EXP))
+  # Likelihood ratio to independent model
+  LR2IND=sum(EXP*log(FIT/CCC))
+  RET=list(chisq=CHISQ,dof=dof,dev=DEV,lr2ind=LR2IND,fit=FIT,exp=EXP,ccc=CCC)
+  return(RET)
+}
+```
+
+
+
+```{r echo = TRUE, results = "hide"}
+library(nnet)
+mod_multi_main <- multinom(policy~sex+year, uncviet, weights = y)
+ldata <- t(matrix(uncviet$y, 4,10))
+res <- gof(mod_multi_main, ldata)
+```
+
+The deviance is given by
+```{r echo = TRUE}
+res[[3]]
+```
+The model has 12 degrees of freedom (30-3(6)), compared to 22 for the model in part (c). Requiring so many estimated parameters just for the main effects makes building on this model difficult, as we will see below in part (i) when we try to add an interaction term.
+
+#(i)
+Next we add sex:year interactions to the model in part (h), that is, we fit the multinomial model  $$\log\frac{p_{ij}}{p_{i1}} =  \beta_{0j}+\beta_{1j}\textbf{1}_{\{\text{Male}\}}+\beta_{2j}^T\text{year}+\beta_{3j}^T\text{sex:year},$$ for $j = B,C,D$ (i.e. a separate $\beta$ is fit for each outcome), and where $p_{ij} = P(Y_i=j|x_i)$.
+```{r echo = FALSE, results = "hide", include = FALSE}
+
+
+mod_multi_interactions <- multinom(policy~sex*year, uncviet, weights = y)
+#summary(mod_multi_main)
+ldata <- t(matrix(uncviet$y, 4,10))
+res = gof(mod_multi_interactions, ldata)
+
+```
+
+Next we build on the multinomial model by adding sex:year interactions in addition to the main effects. The deviance of this model (again obtained using the gof function) is zero. This may seem like a surprising result, but notice that this model has 30-3(10) = 0 degrees of freedom. In other words, it is saturated! So using the multinomial model does not allow for a meaningful fit of the full sex:year interaction term. On the other hand, the proportional odds model does allow us to include the interaction term, because doing so does not use up all the degrees of freedom. The assumption of proportional odds reduces the number of estimated parameters in the model for a given set of covariates-instead of estimating three separate beta vectors, we only need to estimate a single beta and three intercept terms.
+
+
+
+
+

@@ -1,0 +1,438 @@
+---
+title: "Homework 1"
+author: "Sarah Adilijiang"
+output:
+  pdf_document: default
+  html_notebook: default
+---
+
+### Problem 1
+#### (a)
+The generalized linear model (GLM) for binary response here is:
+\newline likelihood: \(P(spikes_i=y_i|p_i) = p_i^{y_i} (1-p_i)^{1-y_i}, \ y_i=0 \ or \ 1 \)
+\newline linear predictor: \(\eta_i = \beta_0 + \beta_1 xN_i + \beta_2 yN_i\)
+\newline link function (logit): \(\eta_i = \log \frac{p_i}{1-p_i}\)
+\newline
+```{r}
+load("HIPP.Rdata")
+model.glm = glm(spikes~xN+yN, family=binomial, data=HIPP)
+summary(model.glm)
+
+# binned deviance residuals plot against the linear predictor eta
+library(dplyr)
+HIPP2 = data.frame(HIPP)
+HIPP2 = mutate(HIPP2, residuals=residuals(model.glm), linpred=predict(model.glm))
+gdf = group_by(HIPP2, cut(linpred, breaks= unique(quantile(linpred, (1:1000)/1001)))) # each bin ~ 40 points
+diagdf = summarise(gdf, residuals=mean(residuals), linpred=mean(linpred))
+plot(residuals ~ linpred, diagdf, xlab="linear predictor")
+```
+
+Comment:
+
+In the binned residuals plot against the liner predictor \(\eta\), we see that there are nonlinearity trends in the residuals and there is a clear pattern, thus the model assumptions are not appropriate with respect to this data set.
+
+
+#### (b)
+Fit the GLM model with the linear predictor \(\eta\) including the interactions of xN and yN:
+\newline linear predictor: \(\eta_i = \beta_0 + \beta_1 xN_i + \beta_2 yN_i + \beta_3 xN_i:yN_i\)
+\newline
+```{r}
+model.glm2 = glm(spikes~xN*yN, family=binomial, data=HIPP)
+summary(model.glm2)
+
+# binned deviance residuals plot against the linear predictor eta
+library(dplyr)
+HIPP2 = data.frame(HIPP)
+HIPP2 = mutate(HIPP2, residuals=residuals(model.glm2), linpred=predict(model.glm2))
+gdf = group_by(HIPP2, cut(linpred, breaks= unique(quantile(linpred, (1:1000)/1001)))) # each bin ~ 40 points
+diagdf = summarise(gdf, residuals=mean(residuals), linpred=mean(linpred))
+plot(residuals ~ linpred, diagdf, xlab=expression(eta))
+
+# compare the two models
+anova(model.glm2, model.glm, test="Chi")
+```
+
+Answer:
+
+There is stil nonlinearity trends and a clear pattern in the residuals plot, and the AIC value is the same with the original model in question (a). And the anova chi-square test statistics has a p-value = 0.2226, so we do not reject the null hypothesis, thus the smaller model without interaction terms is preferred in this case.
+
+Therefore, fit the model with interaction terms of xN and yN will not improve the fit.
+
+
+Then, fit the GLM model with the linear predictor \(\eta\) including second-order terms of xN and yN:
+\newline linear predictor: \(\eta_i = \beta_0 + \beta_1 xN_i + \beta_2 yN_i + \beta_3 xN_i^2 + \beta_4 yN_i^2\)
+\newline
+```{r}
+model.glm3 = glm(spikes~xN+yN+I(xN^2)+I(yN^2), family=binomial, data=HIPP)
+summary(model.glm3)
+
+# binned deviance residuals plot against the linear predictor eta
+library(dplyr)
+HIPP2 = data.frame(HIPP)
+HIPP2 = mutate(HIPP2, residuals=residuals(model.glm3), linpred=predict(model.glm3))
+gdf = group_by(HIPP2, cut(linpred, breaks= unique(quantile(linpred, (1:1000)/1001)))) # each bin ~ 40 points
+diagdf = summarise(gdf, residuals=mean(residuals), linpred=mean(linpred))
+plot(residuals ~ linpred, diagdf, xlab=expression(eta))
+
+# compare the two models
+anova(model.glm3, model.glm, test="Chi")
+```
+
+Answer:
+
+Though there is stil nonlinearity trends and a clear pattern in the residuals plot, the AIC value of this model is much lower than the original model in question (a). And the anova chi-square test statistics has a p-value < 2.2e-16, so we reject the null hypothesis, thus the larger model with second-order terms is preferred in this case.
+
+Therefore, fit the model with second-order terms of xN and yN will improve the fit.
+
+
+#### (c)
+```{r}
+# sample the data every 20 points
+HIPP2 = data.frame(HIPP)
+HIPP3 = data.frame(matrix(0,1,ncol(HIPP2)))
+colnames(HIPP3) = colnames(HIPP2)
+for (i in 1:2067) {
+    HIPP3[i, ] = HIPP2[1+20*(i-1), ]
+}
+
+# fit the GLM model same as in question (a)
+model.glm4 = glm(spikes~xN+yN, family=binomial, data=HIPP3)
+summary(model.glm4)
+```
+
+Answer:
+
+When sampling the data every 20 points, the value of fitted parameters are similar, but the coefficient of xN becomes less significant comparing with the model in question (a).
+
+
+#### (d)
+```{r}
+# construct the new dataset
+HIPP3_1 = HIPP3[HIPP3$spikes==1, ]
+HIPP3_0 = HIPP3[HIPP3$spikes==0, ]
+
+n = nrow(HIPP3) - nrow(HIPP3[HIPP3$spikes==1, ])
+indices = sample(1:n, 100, replace=FALSE)
+HIPP3_0 = HIPP3_0[indices, ]
+
+HIPP4 = rbind(HIPP3_0, HIPP3_1)
+
+# fit the linear predictor with second-order terms same as in question (b)
+model.glm5 = glm(spikes~xN+yN+I(xN^2)+I(yN^2), family=binomial, data=HIPP4)
+summary(model.glm5)
+```
+
+Answer:
+
+The coefficients are not the same, and the coefficient of xN becomes much less significant comparing with the model with second-order terms in question (b).
+
+When using the original dataset, the predictors are fixed and the outcome is observed, thus we are doing prospective sampling. In this case, the probabilities that a neuron is included in the study are the same whether or not the neuron is fired. 
+
+However, when using the new dataset in this question with same number of fired and not fired neurons, the outcome is fixed and the predictors are observed, thus we are doing retrospective sampling. In this case, the probability that a fired neuron is included in the study is larger than a not fired neuron. 
+
+If \(\pi_0\) is the probabiltiy that a neuron is included in the study if it is fired, while \(\pi_1\) is the probability of inclusion if it is not fired. In prospective study, \(\pi_0 = \pi_1\), while in retrospective study, usually \(\pi_1 > \pi_0\). 
+
+Let's set the unconditional probability that a neuron is fired in the prosepctive study as \(p(x)\), and the conditional probability that a neuron is fired in the retrosepctive study as \(p^*(x)\).
+
+So we have \(p^*(x) = \frac{\pi_1p(x)}{\pi_1p(x)+\pi_0(1-p(x))} \ \ \Rightarrow \ \ logit(p^*(x)) = \log\frac{\pi_1}{\pi_0} + logit(p(x))\), so the only difference between two kinds of studies would be the difference in the intercept: \(\log\frac{\pi_1}{\pi_0}\)
+
+
+#### (e)
+Fit the GLM model with the linear predictor \(\eta\) including the variabel spikes.hist:
+\newline linear predictor: \(\eta_i = \beta_0 + \beta_1 xN_i + \beta_2 yN_i + \beta_3 spikes.hist\)
+\newline
+```{r}
+model.glm6 = glm(spikes~xN+yN+spikes.hist, family=binomial, data=HIPP)
+summary(model.glm6)
+
+# compare the two models
+anova(model.glm, model.glm6, test="Chi")
+```
+
+Answer:
+
+The anova chi-square test statistics has a p-value < 2.2e-16, so we reject the null hypothesis, thus the larger model adding the spikes.hist variable is preferred in this case. So we may say that the history of spike activity of the neuron improve the prediction of the spikes relative to the location covarites.
+
+Looking at the coefficients fo the history data, we see that, overall, all the 20 time points are significant predictors. However, the most recent 8 time points have larger absolute values of coefficents and are much more siginicant than the other previous time points. On the other hand, the most recent 3 time points have negative effect on the response, and the following other time points all have positive effect on the response.
+
+
+
+
+### Problem 2
+#### (a)
+The generalized linear model (GLM) for binomial (proportion) response here is:
+\newline likelihood: \(P(numdeath_i=y_i|p_i) = {m_i\choose y_i} p_i^{y_i} (1-p_i)^{m_i-y_i}, \ y_i=0,1,...,m_i \)
+\newline linear predictor: \(\eta_i = \beta_0 + \beta_1 \log_2(dose)_i\)
+\newline link function (logit): \(\eta_i = \log \frac{p_i}{1-p_i}, where \ mortality \ fraction \ p_i = y_i/m_i\)
+\newline
+```{r}
+# construct the binomial dataset
+log_dose = c(0:5)
+numdead = c(0,2,3,5,7,10)
+m = c(7,9,8,7,9,11)
+numalive = m-numdead
+SF = cbind(numdead, numalive)
+LD = data.frame(SF, log_dose)
+
+# fit the binomial model
+model.glm = glm(SF~log_dose, family=binomial, data=LD)
+
+# plot
+mortality_frac = numdead/m
+plot(mortality_frac~log_dose, col=2, xlab="log dose", ylab="mortality fraction")
+predprob = predict(model.glm, type="response")
+points(predprob~log_dose, pch=2, col=4)
+legend(0,0.85, c("Observed mortality fraction","Fitted probabilities"), pch=c(1,2), col=c(2,4))
+ld = seq(0,5,by=0.001)
+lines(ld, predict(model.glm, data.frame(log_dose=ld), type="response"), lty=2, col=4)
+```
+
+
+#### (b)
+\(LD_{50}\) is the dose that causes a 50% mortality rate, so we set \(p = 0.5\) and get \(\eta = \log \frac{p}{1-p} = 0\)
+\newline Since \(\hat{\eta} = \hat{\beta_0} + \hat{\beta_1} \log_2(dose) = 0\), so we get \(\widehat{\log_2(LD_{50})} = - \hat{\beta_0}/\hat{\beta_1}\)
+\newline
+```{r}
+beta = coef(model.glm)
+log_LD50 = - beta[1]/beta[2]; log_LD50
+```
+
+Then, to get the standard error:
+\newline Since \(\hat{\theta} = (\hat{\beta_0},\hat{\beta_1})^T\), and \(\widehat{\log_2(LD_{50})} = - \hat{\beta_0}/\hat{\beta_1} = g(\hat{\theta})\)
+\newline \(\Rightarrow  g'(\hat{\theta}) = (\frac{\partial g(\hat{\theta})}{\partial \hat{\beta_0}}, \frac{\partial g(\hat{\theta})}{\partial \hat{\beta_1}})^T = (-\frac{1}{\hat{\beta_1}}, \frac{\hat{\beta_0}}{\hat{\beta_1}^2})^T\)
+\newline Then use \(Var[g(\hat{\theta})] \approx g'(\hat{\theta})^T Var(\hat{\theta}) g'(\hat{\theta})\) to compute the standard error.
+\newline
+```{r}
+dr = c(-1/beta[2], beta[1]/beta[2])
+cov_matrix = summary(model.glm)$cov.unscaled
+se = sqrt(t(dr) %*% cov_matrix %*% dr)
+CI_0.95 = c(log_LD50-1.96*se, log_LD50+1.96*se); CI_0.95
+```
+
+Answer:
+
+Using the delta method, the point estimation of \(\log_2(LD_{50})\) is 2.510815, and its 95% CI is (1.798816, 3.222814).
+
+
+#### (c)
+Here we compute a 95% CI for \(\rho = \beta_0/\beta_1\)
+\newline First, the point estimation is: \(\hat{\rho} = \hat{\beta_0}/\hat{\beta_1}\)
+\newline Then, we compute the 95% CI for \(\rho\):
+\newline Since \(T_p = \frac{\beta_0-\rho\beta_1}{\sqrt{C_{00}-2\rho C_{01}+\rho^2C_{11}}}\), and \(\{\rho: |T_p| \leq z_{1-\alpha/2} = z_{0.975} = 1.96\} \ \ \Rightarrow \ \ |T_p|^2 \leq z^2\)
+\newline \(\Rightarrow (\beta_1^2-z^2C_{11})\rho^2-2(\beta_0\beta_1-z^2C_{01})\rho \ +(\beta_0^2-z^2C_{00}) \leq 0\)
+\newline \(\Rightarrow \frac{\beta_0\beta_1-z^2C_{01} \ - \sqrt{(\beta_0\beta_1-z^2C_{01})^2-(\beta_0^2-z^2C_{00})(\beta_1^2-z^2C_{11})}}{\beta_1^2-z^2C_{11}} \leq \rho \leq \frac{\beta_0\beta_1-z^2C_{01} \ + \sqrt{(\beta_0\beta_1-z^2C_{01})^2-(\beta_0^2-z^2C_{00})(\beta_1^2-z^2C_{11})}}{\beta_1^2-z^2C_{11}}\)
+\newline
+```{r}
+beta0 = beta[1]; beta1 = beta[2]
+rho = beta0/beta1; rho
+C00 = cov_matrix[1,1]; C01 = cov_matrix[1,2]; C11 = cov_matrix[2,2]
+z = 1.96
+a = beta1^2 - z^2*C11
+b = - 2*(beta0*beta1 - z^2*C01)
+c = beta0^2 - z^2*C00
+se = c( (-b - sqrt(b^2-4*a*c))/(2*a) , (-b + sqrt(b^2-4*a*c))/(2*a) ); se
+```
+
+Answer:
+
+Using the Fieller's method, the point estimation of \(\rho\) is -2.510815, and its 95% CI is (-3.313109, -1.656959).
+
+Since \(\log_2(LD_{50}) = - \beta_0/\beta_1 = - \rho\), so the point estimation of \(\log_2(LD_{50})\) is 2.510815, and its 95% CI is (1.656959, 3.313109).
+
+
+#### (d)
+```{r}
+# construct a new data frame including mi's and fitted pi's at each dose level
+predprob = predict(model.glm, type="response")
+LD = cbind(LD, m, predprob)
+```
+
+
+
+```{r}
+# nonparametric bootstrap
+set.seed(101)
+log_LD50_boot = NULL
+
+for (i in 1:1000) {
+    boot_data = data.frame(matrix(0,nrow(LD),4))
+    colnames(boot_data) = c("numdead","numalive","log_dose","m")
+    
+    for (j in 1:nrow(LD)) {
+        boot_data$m[j] = LD$m[j]
+        boot_data$log_dose[j] = LD$log_dose[j]
+        boot_data$numdead[j] = rbinom(n=1, size=LD$m[j], prob=LD$numdead[j]/LD$m[j])
+        boot_data$numalive[j] = boot_data$m[j] - boot_data$numdead[j]
+    }
+    
+    model.glm_boot = glm(cbind(numdead,numalive)~log_dose, family=binomial, data=boot_data)
+    beta = coef(model.glm_boot)
+    log_LD50_boot[i] = - beta[1]/beta[2]
+}
+
+mu = mean(log_LD50_boot); mu
+se = sd(log_LD50_boot)
+CI_0.95 = c(mu-se*1.96, mu+se*1.96); CI_0.95
+```
+
+Answer: 
+
+Using nonparametric bootstrp, the point estimation of \(\log_2(LD_{50})\) is 2.519667, and its 95% CI is (1.805743, 3.233591).
+
+```{r}
+# parametric bootstrap
+set.seed(101)
+log_LD50_boot = NULL
+
+for (i in 1:1000) {
+    boot_data = data.frame(matrix(0,nrow(LD),4))
+    colnames(boot_data) = c("numdead","numalive","log_dose","m")
+    
+    for (j in 1:nrow(LD)) {
+        boot_data$m[j] = LD$m[j]
+        boot_data$log_dose[j] = LD$log_dose[j]
+        boot_data$numdead[j] = rbinom(n=1, size=LD$m[j], prob=LD$predprob[j])
+        boot_data$numalive[j] = boot_data$m[j] - boot_data$numdead[j]
+    }
+    
+    model.glm_boot = glm(cbind(numdead,numalive)~log_dose, family=binomial, data=boot_data)
+    beta = coef(model.glm_boot)
+    log_LD50_boot[i] = - beta[1]/beta[2]
+}
+
+mu = mean(log_LD50_boot); mu
+se = sd(log_LD50_boot)
+CI_0.95 = c(mu-se*1.96, mu+se*1.96); CI_0.95
+```
+
+Answer:
+
+Using parametric bootstrp, the point estimation of \(\log_2(LD_{50})\) is 2.485934, and its 95% CI is (1.761000, 3.210868).
+
+
+#### (e)
+The restriction is : \(\beta_0 + 4*\beta_1 = 0 \ \ \Rightarrow \ \ \beta_0 = -4\beta_1 \)
+
+So now the restricted GLM sub-model for binomial (proportion) response here is:
+\newline likelihood: \(P(numdeath_i=y_i|p_i) = {m_i\choose y_i} p_i^{y_i} (1-p_i)^{m_i-y_i}, \ y_i=0,1,...,m_i \)
+\newline linear predictor: \(\eta_i = \beta_0 + \beta_1 \log_2(dose)_i = -4\beta_1 + \beta_1 \log_2(dose)_i = \beta_1(\log_2(dose)_i-4)\), which has no intercept term here.
+\newline link function (logit): \(\eta_i = \log \frac{p_i}{1-p_i}, where \ mortality \ fraction \ p_i = y_i/m_i\)
+\newline
+```{r}
+# fit the sub-model
+log_dose_new = log_dose - 4
+model.glm_sub = glm(SF~log_dose_new-1, family=binomial)
+summary(model.glm_sub)
+```
+
+Then we compute the log likelihood ratio statistic:  \(LR(4) = -2\log\frac{L_{Small}}{L_{Large}} = (-2\log(L_{Small})) - (-2\log(L_{Large})) = D_{Small} - D_{Large}\)
+\newline If the null hypothesis is true: \(LR(4) = D_{Small} - D_{Large} \sim \chi^2_{l-s} = \chi^2_1\)
+```{r}
+# compute the log likelihood ratio statistic
+LR4 = deviance(model.glm_sub) - deviance(model.glm); LR4
+
+# compute the p-value
+p_val = 1 - pchisq(LR4, 1); p_val
+```
+
+Answer:
+
+The log likelihood ratio statistic LR(4) is 11.59227, and the p-value for the hypothesis test is 0.0006622646. Since p-value < 0.001, so we reject the null hypothesis (the restricted sub-model).
+
+
+
+
+### Problem 3
+#### (a)
+The generalized linear model (GLM) for binomial response here is:
+\newline likelihood: \(P(damage_i=y_i|p_i) = {m_i\choose y_i} p_i^{y_i} (1-p_i)^{m_i-y_i}, \ y_i=0,1,...,m_i \)
+\newline linear predictor: \(\eta_i = \beta_0 + \beta_1 temp_i\)
+\newline link function (logit): \(\eta_i = \log \frac{p_i}{1-p_i}\)
+\newline
+```{r}
+# data in R
+library(faraway)
+data(orings)
+model.glm = glm(cbind(damage,6-damage)~temp, family=binomial, data=orings)
+sumary(model.glm)
+```
+
+```{r}
+# data from the paper
+temp2 = c(66,70,69,68,67,72,73,70,57,63,70,78,67,53,67,75,70,81,76,79,75,76,58)
+damage2 = c(0,1,0,0,0,0,0,0,1,1,1,0,0,2,0,0,0,0,0,0,2,0,1)
+paper = data.frame(temp2, damage2)
+paper = paper[order(temp2), ]
+
+# check if the value of temperature are the same
+sum(orings$temp!=paper$temp2)
+
+# check if the number of damage are the same
+sum(orings$damage!=paper$damage2)
+orings[which(orings$damage!=paper$damage2), ]
+paper[which(orings$damage!=paper$damage2), ]
+
+# use the paper data to fit the model
+model.glm2 = glm(cbind(damage2,6-damage2)~temp2, family=binomial, data=paper)
+sumary(model.glm2)
+```
+
+Answer:
+
+Using the data from the paper, we get \(\hat{\beta_0} = 5.084977\), \(\hat{\beta_1} = -0.115601\), which are the same as shown in the paper.
+
+Using the data from the Faraway package in R, we get \(\hat{\beta_0} = 11.662990\), \(\hat{\beta_1} = -0.216234\). They are different from the paper. Comparing the two datasets, we find that all the temperature values are the the same, however, there are two observations of number of damages are different at temperature 53 and 75. In R, these two data points are (53,5) and (75,1), but in the paper, they are (53,2) and (75,2).
+
+
+#### (b)
+The generalized linear model (GLM) for binary response here is:
+\newline likelihood: \(P(event_i=y_i|p_i) = p_i^{y_i} (1-p_i)^{1-y_i}, \ y_i=0 \ or \ 1 \)
+\newline linear predictor: \(\eta_i = \beta_0 + \beta_1 temp_i\)
+\newline link function (logit): \(\eta_i = \log \frac{p_i}{1-p_i}\)
+\newline
+```{r}
+orings$event = as.numeric(orings$damage>0)
+model.glm3 = glm(event~temp, family=binomial, data=orings)
+sumary(model.glm3)
+```
+
+Answer:
+
+The binary analysis using the data from the Faraway package in R, we get \(\hat{\beta_0} = 15.04290\), \(\hat{\beta_1} = -0.23216\), which are the same as shown in the paper. Because the binary response here is 1 if there was at one O-ring incident and 0 otherwise. For the two different data points discussed above, they now both become the same data points in the two datasets, which are (53,1) and (75,1). Thus the binary analysis results are the same.
+
+
+#### (c)
+```{r}
+summary(as.factor(orings$damage))
+```
+
+Answer:
+
+There is also a sparsity problem in the original binomial data. The possible outcomes of binomial responses are (0,1,2,3,4,5,6), however, our data only has 23 data points and most of them (16 data points) have response "0". Within the other 7 data points, 6 of them have response "1", only 1 of them has response "5". Therefore, not only that there are much less data points in response spcace (1,2,3,4,5,6) than "0", but also that there are no data points at all in response spcace (2,3,4,6). Thus the original binomial dataset with mostly zeros also has a sparsity problem.
+
+
+#### (d)
+```{r}
+summary(as.factor(orings$temp))
+```
+
+Answer:
+
+With sparse data in logistic GLM models, there might be Hauck-Donner effect. To remedy the sparsity problem in binary data, the first option is to collect more data at each temperature so that there may be more "1"s in the data set. If it's impossible to get more data, we can also try parametric boostrap to generate more data from the origianl data set.
+
+On the other hand, let's look at the temperature variables in the dataset, we see that there are some repeated temperature points, for example, there are 4 points at temperature 70. We can combine these data together and make less "0"s at each temperature, which will also turn the binary data into binomial counts data.
+
+
+#### (e)
+
+Answer:
+
+Set the probability of damage in the binomial case as \(p\), and set the probability of event in the binary case as \(p^*\). Since Y=0 iff X=0 in both binary and binomial cases, we have the relationship: \((1-p)^6 = 1 - p^* \ \ \Rightarrow \ \ p = 1 - (1-p^*)^{1/6}\)
+
+In the binary model, we can get the fitted parameters \(\hat{\beta_0}\) and \(\hat{\beta_1}\), so \(\hat{\eta_i} = \hat{\beta_0} + \hat{\beta_1} temp_i\), and \(\hat{p^*} = \frac{e^{\hat{\eta}}}{1+e^{\hat{\eta}}}\)
+
+Thus, we get \(\hat{p} = 1 - (1-\hat{p^*})^{1/6}\)
+
+Since number of damage: \(damage \sim Binomial(6,p)\), so \(\hat{damage} = E[Binomial(6,p)] = 6\hat{p}\), thus we can get the expected number of damage from the probability estimated from the binary model. 
+
+
